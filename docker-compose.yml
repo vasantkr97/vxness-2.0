@@ -1,0 +1,31 @@
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  timescaledb:
+    image: timescale/timescaledb:2.18.2-pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+    ports:
+      - "5440:5432"
+    volumes:
+      - timescaledbData:/var/lib/postgresql/data
+  postgres:
+    image: postgres:latest
+    environment: 
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password123
+      - POSTGRES_DB=postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgresData:/var/lib/postgresql/data
+    
+
+volumes: 
+  timescaledbData:
+  postgresData:
