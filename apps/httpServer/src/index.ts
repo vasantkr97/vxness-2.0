@@ -1,6 +1,10 @@
 import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
+import dotenv from "dotenv"
+import authRoutes from "./routes/auth.route"
+
+dotenv.config();
 
 const app = express()
 
@@ -9,6 +13,8 @@ app.use(cors({
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"]
 }))
+
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json())
 
@@ -22,13 +28,13 @@ app.get("/health", (req, res) => {
 })
 
 
-app.use("/api/candles", candlesRoutes)
+// app.use("/api/candles", candlesRoutes)
 app.use("/api/auth",authRoutes)
-app.use("/api/orders", orderRoutes)
-app.use("/api/trade", tradeRoutes)
+// app.use("/api/orders", orderRoutes)
+// app.use("/api/trade", tradeRoutes)
 
 
 app.listen(PORT, () => {
     console.log(`API Service running on port ${PORT}`)
-    console.log(`Health check available `)
+    console.log(`Health check available at http://localhost:${PORT}/health `)
 })

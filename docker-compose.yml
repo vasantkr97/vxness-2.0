@@ -14,18 +14,18 @@ services:
       - "5440:5432"
     volumes:
       - timescaledbData:/var/lib/postgresql/data
+
   postgres:
     image: postgres:latest
     environment: 
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password123
-      - POSTGRES_DB=postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: postgres
     ports:
       - "5433:5432"
     volumes:
-      - postgresData:/var/lib/postgresql/data
-    
+      - postgresData:/var/lib/postgresql
 
-volumes: 
+volumes:
   timescaledbData:
   postgresData:
