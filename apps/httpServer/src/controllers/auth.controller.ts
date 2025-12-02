@@ -4,7 +4,7 @@ import { prisma } from "@vxness/db"
 import bcrypt from "bcryptjs"
 import { SigninSchema, SignupSchema } from "../schemas/auth.zodType"
 import dotenv from "dotenv"
-import { tr } from "zod/locales"
+
 dotenv.config()
 
 const JWT_SECRET = process.env.JWT_SECRET || "vasnth"
@@ -61,7 +61,6 @@ export async function signup(req: Request, res: Response): Promise<Response | vo
         })
     }
 }
-
 
 export async function signin(req: Request, res: Response): Promise<Response | void> {
     try {

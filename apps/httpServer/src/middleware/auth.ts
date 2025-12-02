@@ -18,7 +18,7 @@ declare global {
     }
 }
 
-export async function authentication(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function auth(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
         const token = req.cookies?.jwt;
 
