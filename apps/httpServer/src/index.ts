@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser"
 import dotenv from "dotenv"
 import authRoutes from "./routes/auth.routes"
 import balanceRoutes from "./routes/balance.routes"
+import candlesRoutes from "./routes/candles.routes"
 
 dotenv.config();
 
@@ -29,7 +30,7 @@ app.get("/health", (req, res) => {
 })
 
 
-// app.use("/api/candles", candlesRoutes)
+app.use("/api/candles", candlesRoutes)
 app.use("/api/auth",authRoutes)
 app.use("/api/balance", balanceRoutes)
 // app.use("/api/trade", tradeRoutes)

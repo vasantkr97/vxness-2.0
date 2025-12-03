@@ -2,7 +2,7 @@ import type { Request, Response } from "express"
 import { redis } from "@vxness/redis"
 import { prisma } from "@vxness/db"
 
-import { GetWalletBalanceBySymbol, DepositWalletBalanceBySymbol } from "../schemas/balance.zodType"
+import { GetWalletBalanceBySymbol, DepositWalletBalanceBySymbol, type DepositWalletType } from "../schemas/balance.zodType"
 
 
 
@@ -46,16 +46,16 @@ export const getBalanceBySymbol = async (req: Request, res: Response) => {
         })
     }
 
-    const parsedResult = GetWalletBalanceBySymbol.safeParse(req.params);
+    const validatedResult = GetWalletBalanceBySymbol.safeParse(req.params);
 
-    if (!parsedResult.success) {
+    if (!validatedResult.success) {
         return res.status(400).json({
             error: "Invalid request parameters",
-            details: parsedResult.error
+            details: validatedResult.error
         })
     }
 
-    const { symbol } = parsedResult.data
+    const { symbol } = validatedResult.data
 
     try {
         const wallet = await prisma.wallet.findUnique({
@@ -103,7 +103,9 @@ export const depositToWallet = async (req: Request, res: Response) => {
         })
     }
 
-    const { symbol, amount, decimals } = parseResult.data
+    const query: DepositWalletType = parseResult.data
+
+    const { symbol, amount, decimals } = query
     const decimalPlaces = decimals ?? 8
 
     if (amount <= 0) {

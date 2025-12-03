@@ -12,3 +12,7 @@ export const DepositWalletBalanceBySymbol = z.object({
     decimals: z.coerce.number().int().min(0).max(8).default(2)
 })
 
+
+export type GetWalletBalanceType = z.infer<typeof GetWalletBalanceBySymbol>
+
+export type DepositWalletType = z.infer<typeof DepositWalletBalanceBySymbol>

@@ -2,7 +2,7 @@ import {type Request,type Response } from "express"
 import jwt  from "jsonwebtoken"
 import { prisma } from "@vxness/db"
 import bcrypt from "bcryptjs"
-import { SigninSchema, SignupSchema } from "../schemas/auth.zodType"
+import { SigninSchema, SignupSchema, type SigninType, type SignupType } from "../schemas/auth.zodType"
 import dotenv from "dotenv"
 
 dotenv.config()
@@ -11,15 +11,18 @@ const JWT_SECRET = process.env.JWT_SECRET || "vasnth"
 
 export async function signup(req: Request, res: Response): Promise<Response | void>  {
     try {
-        const parsedBody = SignupSchema.safeParse(req.body)
+        const validatedBody = SignupSchema.safeParse(req.body)
 
-        if (!parsedBody.success) {
+        if (!validatedBody.success) {
             return res.status(400).json({
                 msg: "Invalid Input"
             })
         }
         
-        const { email, username, password } = parsedBody.data;
+        //Parsed.data is now fully typed, validated
+        const query: SignupType = validatedBody.data
+        
+        const { email, username, password } = query;
 
         if (!email || !password || !username) {
             return res.status(400).json({msg: "All fields are requied."})
@@ -64,15 +67,17 @@ export async function signup(req: Request, res: Response): Promise<Response | vo
 
 export async function signin(req: Request, res: Response): Promise<Response | void> {
     try {
-        const parsedBody = SigninSchema.safeParse(req.body)
+        const validatedBody = SigninSchema.safeParse(req.body)
 
-        if (!parsedBody.success) {
+        if (!validatedBody.success) {
             return res.status(404).json({
                 msg: "Invalid inputs"
             })
         }
 
-        const { email, password } = parsedBody.data
+        const query: SigninType = validatedBody.data
+
+        const { email, password } = query
 
         if (!email || !password) {
             return res.status(400).json({ error: "email and password are required"});
