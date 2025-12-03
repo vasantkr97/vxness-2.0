@@ -2,7 +2,8 @@ import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
 import dotenv from "dotenv"
-import authRoutes from "./routes/auth.route"
+import authRoutes from "./routes/auth.routes"
+import balanceRoutes from "./routes/balance.routes"
 
 dotenv.config();
 
@@ -30,9 +31,9 @@ app.get("/health", (req, res) => {
 
 // app.use("/api/candles", candlesRoutes)
 app.use("/api/auth",authRoutes)
-// app.use("/api/orders", orderRoutes)
+app.use("/api/balance", balanceRoutes)
 // app.use("/api/trade", tradeRoutes)
-
+//app.use("/api/positions", positions)
 
 app.listen(PORT, () => {
     console.log(`API Service running on port ${PORT}`)

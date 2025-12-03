@@ -1,5 +1,5 @@
 {
-  "name": "redis",
+  "name": "@vxness/redis",
   "module": "index.ts",
   "type": "module",
   "private": true,
@@ -12,5 +12,8 @@
   },
   "dependencies": {
     "ioredis": "^5.8.2"
+  },
+  "exports": {
+    ".": "./index.ts"
   }
 }
