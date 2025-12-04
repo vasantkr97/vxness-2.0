@@ -1,6 +1,6 @@
 import Redis from "ioredis"
 
-export function createdRedisClient() {
+export function createRedisClient() {
 
     const host = process.env.REDIS_HOST || "redis";
     const port = Number(process.env.REDIS_PORT || 6379)
@@ -18,4 +18,10 @@ export function createdRedisClient() {
     return client
 }
 
-export const redis = createdRedisClient()
+//main redis (non-blocking, singleton, single global client)
+export const redis = createRedisClient()
+
+//main redis connection (blocking)
+//export const redisBlocking = createdRedisClient()
+
+export default createRedisClient

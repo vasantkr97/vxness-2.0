@@ -109,6 +109,15 @@
         "typescript": "^5",
       },
     },
+    "packages/types": {
+      "name": "@vxness/types",
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+      },
+    },
     "packages/typescript-config": {
       "name": "@repo/typescript-config",
       "version": "0.0.0",
@@ -357,6 +366,8 @@
     "@vxness/db": ["@vxness/db@workspace:packages/db"],
 
     "@vxness/redis": ["@vxness/redis@workspace:packages/redis"],
+
+    "@vxness/types": ["@vxness/types@workspace:packages/types"],
 
     "accepts": ["accepts@2.0.0", "", { "dependencies": { "mime-types": "^3.0.0", "negotiator": "^1.0.0" } }, "sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng=="],
 

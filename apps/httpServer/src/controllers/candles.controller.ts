@@ -1,27 +1,8 @@
 import type { Request, Response } from "express"
-
+import type { CandleResponse, UpstreamCandle } from "@vxness/types"
 import { GetCandlesQuerySchema, type GetCandlesQueryType } from "../schemas/candles.zodType"
 
-type CandleResponse = {
-    bucket: number;
-    symbol: string;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-    volume: number;
-    time: number;
-}
 
-// Define the shape of the upstream candle data
-type UpstreamCandle = {
-    start: number;
-    open: string;
-    high: string;
-    low: string;
-    close: string;
-    volume: string;
-};
 
 type SymbolType = Record<string, string>
 
@@ -35,7 +16,6 @@ const SYMBOL_MAP: SymbolType = {
 }
 
 //timeFrame(time Window) -> number of seconds
-
 type TimeWindowType = Record<string, number>
 
 const TIME_WINDOW_MAP: TimeWindowType = {
