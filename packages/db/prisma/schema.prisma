@@ -84,7 +84,7 @@ model Order {
   userId            String       @map("user_id") @db.Uuid
   symbol            Symbol       // Add this - what asset is being traded
   side              OrderSide          @map("side")
-  status            OrderStatus  @default(OPEN)
+  status            OrderStatus  @default(open)
   
   // Quantities (stored as integers, use decimals for display)
   quantity          Int          @map("quantity")
@@ -131,24 +131,24 @@ enum Symbol {
 }
 
 enum OrderSide {
-  LONG
-  SHORT
+  long
+  short
   
   @@map("order_side")
 }
 
 enum OrderStatus {
-  OPEN
-  CLOSED
+  open
+  closed
   
   @@map("order_status")
 }
 
 enum CloseReason {
-  TAKE_PROFIT
-  STOP_LOSS
-  MANUAL
-  LIQUIDATION
+  take_profit
+  stop_loss
+  manual
+  liquidation
   
   @@map("close_reason")
 }
