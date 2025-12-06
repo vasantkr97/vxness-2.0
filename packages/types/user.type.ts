@@ -1,7 +1,7 @@
 export interface UserBalance {
     symbol: string;
-    balance: number;
-    decimals: number;
+    balanceRaw: number;
+    balanceDecimals: number;
 }
 
 

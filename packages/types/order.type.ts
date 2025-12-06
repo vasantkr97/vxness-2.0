@@ -64,7 +64,6 @@ export type EngineCallbackStatus =
 export type CloseReason = "TakeProfit" | "StopLoss" | "margin" | "Manual";
 
 export interface EngineCallback {
-    id: string;                  // The correlation/order ID
     status: EngineCallbackStatus;
     reason?: CloseReason;        // Only present when status === "closed"
     pnl?: string;                // Only present when status === "closed" (as string from Redis)
