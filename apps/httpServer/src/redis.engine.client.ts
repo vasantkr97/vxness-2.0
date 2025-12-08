@@ -1,6 +1,6 @@
 import { createRedisClient } from "@vxness/redis"
 
-const RESPONSE_STREAM_KEY = "callback_queue";
+const CALLBACK_QUEUE = "callback-queue";
 const REQUEST_STREAM_KEY = "trading-engine";
 const RETRY_DELAY_MS = 5000
 const POLLING_TIMEOUT = 0 
@@ -41,7 +41,7 @@ const startListeningLoop = async (): Promise<void> => {
 
     //Start reading from the latest ID ($)
     let lastReadMessageId = "$"
-  console.log(`[Redis:Listener] 🟢 Listening for engine responses on '${RESPONSE_STREAM_KEY}'...`);
+  console.log(`[Redis:Listener] 🟢 Listening for engine responses on '${CALLBACK_QUEUE}'...`);
     
     const pollForNewMessage = async () => {
         try {
@@ -50,7 +50,7 @@ const startListeningLoop = async (): Promise<void> => {
                 "BLOCK", 
                 POLLING_TIMEOUT,
                 "STREAMS", 
-                RESPONSE_STREAM_KEY, 
+                CALLBACK_QUEUE, 
                 lastReadMessageId
             )
 
@@ -88,7 +88,7 @@ const startListeningLoop = async (): Promise<void> => {
                     activeTimeouts.delete(correlationId)
 
                     //5.Acknowledege and clean uo the message from the stream for memory
-                    subscriberBlockingRedis.xdel(RESPONSE_STREAM_KEY, streamMsgId).catch(err => {
+                    subscriberBlockingRedis.xdel(CALLBACK_QUEUE, streamMsgId).catch(err => {
                         console.error(`[Redis:Listener] Failed to XDEL message ${streamMsgId}`, err)
                     })
 
@@ -105,7 +105,7 @@ const startListeningLoop = async (): Promise<void> => {
             setTimeout(pollForNewMessage, RETRY_DELAY_MS)
         }
     }
-
+    
     //kick off the loop
     pollForNewMessage() 
 }
