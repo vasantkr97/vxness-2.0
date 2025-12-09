@@ -11,6 +11,7 @@ const CONFIG = {
     DB_BATCH_SIZE: 100,
     DB_FLUSH_INTERVAL_MS: 1000,
     MARGIN_THRESHOLD: 0.05,
+    MAX_QUEUE_SIZE: 10000,
 }
 
 type Side = "long" | "short"
@@ -40,10 +41,10 @@ const orders = new Map<string, Order>();
 const balances = new Map<string, Map<string, number>>();
 const prices = new Map<string, { bid: number; ask: number }>();
 
-//Database Queue
+
 let dbQueue: DBTask[] = []
 let isFlushingDB = false;
-let lastStreamId = "$";
+let lastStreamId = "$"; 
 
 
 
@@ -69,7 +70,10 @@ const calcPnl = (side: Side, entry: number, current: number, qty: number): numbe
 //Database Batching System
 //Queue a database operation to be executed in the next batch
 function queueDbAction(action: DBTask) {
-    dbQueue.push(action);
+    if (dbQueue.length >= CONFIG.MAX_QUEUE_SIZE) {
+        console.error(`[DB] Queue overflow! Size: ${dbQueue.length}. Dropping oldest tasks.`)
+    }
+    dbQueue.push(action)
 }
 
 
@@ -77,7 +81,8 @@ function queueDbAction(action: DBTask) {
 async function processDbQueue() {
     if (isFlushingDB || dbQueue.length === 0) return;
     isFlushingDB = true;
-    
+
+    //Take a snapshot of the current queue
     const batch = dbQueue.splice(0, CONFIG.DB_BATCH_SIZE);
     
     try {
@@ -100,10 +105,14 @@ async function processDbQueue() {
                 }
 
                 else if (task.type === "order_close") {
-                    await prisma.order.update({
+                    try {
+                         await prisma.order.update({
                         where: { id: task.data.id },
                         data: task.data.update
-                    })
+                        })
+                    } catch (error: any) {
+                        console.error(`[DB] Close Error ${task.data.id}`, error.message);
+                    }
                 }
             } catch (error) {
                 console.error(`[DB] failed to process ${task.type}:`, error);
@@ -136,13 +145,17 @@ function setBalance(userId: string, symbol: string, amount: number) {
 }
 
 async function sendCallback(orderId: string, status: string, payload: any = {}) {
-    await redisClient.xadd(
-        CONFIG.CALLBACK_QUEUE, 
-        "*", 
-        "id", orderId, 
-        "status", status, 
-        "payload",JSON.stringify(payload)
-    )
+    try {
+        await redisClient.xadd(
+            CONFIG.CALLBACK_QUEUE, 
+            "*", 
+            "id", orderId, 
+            "status", status, 
+            "payload", JSON.stringify(payload)
+        )
+    } catch(e) {
+        console.error("Redis Callback Error", e);
+    }
 }
 
 function executeClose(order: Order, price: number, reason: string, pnl: number) {
@@ -168,7 +181,7 @@ function executeClose(order: Order, price: number, reason: string, pnl: number) 
         }
     });
 
-    console.log(`[Closed] ${order.id} | ${reason} | Pnl: ${fromInt(pnl)}`);
+    console.log(`[Closed] ${order.id} | ${reason} | Pnl: ${fromInt(pnl).toFixed(2)}`);
     sendCallback(order.id, "closed", { reason, pnl: fromInt(pnl), price: fromInt(price) })
 }
 
@@ -266,7 +279,7 @@ async function handleCreateOrder(payload: any) {
     sendCallback(id, "opened", { price: fromInt(openingPrice)})
 }
 
-async function handleCloseRequest(payload: any) {
+async function handleCloseOrder(payload: any) {
     const { orderId, userId } = payload;
     const order = orders.get(orderId);
     
@@ -289,13 +302,19 @@ async function loadState(){
         where: { status: "open" }
     });
 
+
     dbOrders.forEach((order: any) => {
+
+        const opPrice = Number(order.openingPrice);
+        const q = Number(order.qty);
+
         orders.set(order.id, {
             id: order.id, userId: order.userId, asset: order.asset, side: order.side as Side,
-            qty: toInt(order.qty),
+            qty: toInt(q),
             leverage: order.leverage,
-            openingPrice: toInt(order.openingPrice),
-            initialMargin: toInt(order.openingPrice * order.qty) / order.leverage,
+            openingPrice: toInt(opPrice),
+
+            initialMargin: toInt(opPrice * q) / order.leverage,
             takeProfit: order.takeProfit ? toInt(order.takeProfit) : undefined,
             stopLoss: order.stopLoss ? toInt(order.stopLoss) : undefined,
             createdAt: order.createdAt.getTime()
@@ -303,8 +322,53 @@ async function loadState(){
     })
 
     const dbBalances = await prisma.wallet.findMany();
-    dbBalances.forEach((balance: any) => {
-        if (!balances.has(balance.userId) => balances.set(b))
-    })
-
+    dbBalances.forEach((b: any) => {
+        if (!balances.has(b.userId)) balances.set(b.userId, new Map());
+        const val = b.balanceRaw ? Number(b.balanceRaw) : 0;
+        balances.get(b.userId)!.set(b.symbol, toInt(val));
+    });
+    console.log(`State Loaded: ${orders.size} orders.`);
 }
+
+async function engine() {
+    await loadState();
+    console.log("Engine started")
+
+    while (true) {
+        try {
+            const response = await redisClient.xread("BLOCK", 0, "STREAMS", CONFIG.STREAM_KEY, lastStreamId);
+            if (!response || !response[0]) continue;
+
+            const [_, messages] = response[0];
+
+            for (const [id, fields] of messages) {
+                lastStreamId = id;
+
+                try {
+                    let rawData = ""
+                    for (let i = 0; i < fields.length; i+=2) {
+                        if (fields[i] === "data") rawData = fields[i+1] ?? ""
+                    }
+                    if (!rawData) continue
+
+                    const msg = JSON.parse(rawData)
+                    const type = msg.type || msg.requests?.kind;
+                    const payload = msg.data || msg.request?.payload;
+
+                    switch (type) {
+                        case "check_price": await handlePriceUpdate(payload); break;
+                        case "create_order": await handleCreateOrder(payload); break;
+                        case "close_request": await handleCloseOrder(payload); break; 
+                    }
+                } catch (error) {
+                    console.error(`[SKIP] Malformed message ${id}:`, error);
+                }
+            }
+        } catch (error) {
+            console.error("Engine Error:", error);
+            await new Promise(r => setTimeout(r, 1000))
+        }
+    }
+}
+
+engine();
