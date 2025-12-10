@@ -2,7 +2,7 @@ import Redis from "ioredis"
 
 export function createRedisClient() {
 
-    const host = process.env.REDIS_HOST || "redis";
+    const host = process.env.REDIS_HOST || "127.0.0.1";
     const port = Number(process.env.REDIS_PORT || 6379)
 
     const client = new Redis({ host, port })

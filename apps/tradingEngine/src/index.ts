@@ -1,8 +1,6 @@
-import dotenv from "dotenv";
-dotenv.config();
-
-import { redis } from "@vxness/redis";
 import { prisma } from "@vxness/db";
+import { createRedisClient } from "@vxness/redis"
+
 
 const CONFIG = {
     STREAM_KEY: "trading-engine",
@@ -35,7 +33,7 @@ interface DBTask {
     data: any;
 }
 
-const redisClient = redis.duplicate();
+const redisClient = createRedisClient()
 
 const orders = new Map<string, Order>();
 const balances = new Map<string, Map<string, number>>();
