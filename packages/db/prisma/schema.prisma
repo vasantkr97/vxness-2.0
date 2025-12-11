@@ -64,7 +64,7 @@ model Wallet {
   id              String   @id @default(uuid()) @db.Uuid
   userId          String   @map("user_id") @db.Uuid
   symbol          Symbol
-  balanceRaw      Int      @map("balance_raw") 
+  balanceRaw      BigInt      @map("balance_raw") 
   balanceDecimals Int      @default(8) @map("balance_decimals") 
   
   createdAt       DateTime @default(now()) @map("created_at")

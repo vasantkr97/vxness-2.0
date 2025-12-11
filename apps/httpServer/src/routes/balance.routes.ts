@@ -1,7 +1,10 @@
 import express from "express"
 import { depositToWallet, getBalance, getBalanceBySymbol } from "../controllers/balance.controller"
+import { auth } from "../middleware/auth"
 
 const route = express.Router()
+
+route.use(auth)
 
 route.get("/", getBalance)
 

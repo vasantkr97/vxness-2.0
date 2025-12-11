@@ -75,7 +75,7 @@ export async function getCandles(req: Request, res: Response): Promise<void> {
         //Construct Request URL
         const url = new URL("https://api.backpack.exchange/api/v1/klines")
         url.searchParams.set("symbol", symbol)
-        url.searchParams.set("timeFrame", timeFrame)
+        url.searchParams.set("interval", timeFrame)
         url.searchParams.set("startTime", startTime.toString())
         url.searchParams.set("endTime", endTime.toString())
 

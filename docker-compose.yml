@@ -12,9 +12,8 @@ services:
       POSTGRES_DB: postgres
     ports:
       - "5433:5432"
-    volumes:
-      - postgresData:/var/lib/postgresql
+#     volumes:
+#       - postgresData:/var/lib/postgresql
 
-volumes:
-  timescaledbData:
-  postgresData:
+# volumes:
+#   postgresData:

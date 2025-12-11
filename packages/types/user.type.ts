@@ -1,6 +1,6 @@
 export interface UserBalance {
     symbol: string;
-    balanceRaw: number;
+    balanceRaw: BigInt;
     balanceDecimals: number;
 }
 

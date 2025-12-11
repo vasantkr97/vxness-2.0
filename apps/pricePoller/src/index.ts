@@ -20,9 +20,21 @@ interface PriceEvent {
 
 async function streamToRedis(payload: unknown): Promise<void> {
     try {
+
+        const parsed = payload as any;
+
+        const priceData = parsed.data;
+    
+        if (!priceData) {
+            console.warn("No data field in message:", payload);
+            return;
+        }
+
+        //console.log("[Poller] Sending priceData:", priceData); 
+
         const event: PriceEvent = {
             kind: "price-update",
-            payload,
+            payload: priceData,
             receivedAt: Date.now()
         }
 
@@ -69,7 +81,7 @@ function connectToExchange() {
         const parsed = parseMessage(data);
 
         if (parsed) {
-            console.log("REceived:", JSON.stringify(parsed))
+            //console.log("REceived:", JSON.stringify(parsed))
             await streamToRedis(parsed);
         }
     })

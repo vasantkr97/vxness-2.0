@@ -111,9 +111,9 @@ export const depositToWallet = async (req: Request, res: Response) => {
     if (amount <= 0) {
         return res.status(400).json({ error: "Amount must be positive"})
     }
-    const baseUnitAmount = Math.round(amount*Math.pow(10, decimalPlaces))
+    const baseUnitAmount = BigInt(Math.round(amount * Math.pow(10, decimalPlaces)))
 
-    if (!Number.isFinite(baseUnitAmount) || baseUnitAmount <= 0) {
+    if (baseUnitAmount <= 0n) {
         return res.status(400).json({ error: "invalid amount"})
     }
 

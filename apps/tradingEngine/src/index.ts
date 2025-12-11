@@ -42,7 +42,7 @@ const prices = new Map<string, { bid: number; ask: number }>();
 
 let dbQueue: DBTask[] = []
 let isFlushingDB = false;
-let lastStreamId = "$"; 
+let lastStreamId = "$";
 
 
 
@@ -54,7 +54,7 @@ const multiplyInt = (a: number, b: number) => {
     const bigB = BigInt(Math.round(b))
     const scale = BigInt(CONFIG.PRECISION_SCALE);
 
-    return Number((bigA*bigB) / scale);
+    return Number((bigA * bigB) / scale);
 };
 
 
@@ -82,7 +82,7 @@ async function processDbQueue() {
 
     //Take a snapshot of the current queue
     const batch = dbQueue.splice(0, CONFIG.DB_BATCH_SIZE);
-    
+
     try {
         for (const task of batch) {
             try {
@@ -90,9 +90,9 @@ async function processDbQueue() {
                     const { userId, symbol, balance } = task.data;
 
                     await prisma.wallet.upsert({
-                        where: { userId_symbol: { userId, symbol }},
-                        create: { userId, symbol, balanceRaw: fromInt(balance), balanceDecimals: 8},
-                        update: { balanceRaw: fromInt(balance) }
+                        where: { userId_symbol: { userId, symbol } },
+                        create: { userId, symbol, balanceRaw: BigInt(Math.round(fromInt(balance))), balanceDecimals: 8 },
+                        update: { balanceRaw: BigInt(Math.round(fromInt(balance))) }
                     });
                 }
 
@@ -104,9 +104,9 @@ async function processDbQueue() {
 
                 else if (task.type === "order_close") {
                     try {
-                         await prisma.order.update({
-                        where: { id: task.data.id },
-                        data: task.data.update
+                        await prisma.order.update({
+                            where: { id: task.data.id },
+                            data: task.data.update
                         })
                     } catch (error: any) {
                         console.error(`[DB] Close Error ${task.data.id}`, error.message);
@@ -145,20 +145,20 @@ function setBalance(userId: string, symbol: string, amount: number) {
 async function sendCallback(orderId: string, status: string, payload: any = {}) {
     try {
         await redisClient.xadd(
-            CONFIG.CALLBACK_QUEUE, 
-            "*", 
-            "id", orderId, 
-            "status", status, 
+            CONFIG.CALLBACK_QUEUE,
+            "*",
+            "id", orderId,
+            "status", status,
             "payload", JSON.stringify(payload)
         )
-    } catch(e) {
+    } catch (e) {
         console.error("Redis Callback Error", e);
     }
 }
 
 function executeClose(order: Order, price: number, reason: string, pnl: number) {
     let credit = order.initialMargin + pnl;
-    if(credit < 0) credit = 0;
+    if (credit < 0) credit = 0;
 
     const currentBalance = getBalance(order.userId, order.asset);
     setBalance(order.userId, order.asset, currentBalance + credit);
@@ -171,8 +171,8 @@ function executeClose(order: Order, price: number, reason: string, pnl: number) 
             id: order.id,
             update: {
                 status: 'closed',
-                closingPrice: fromInt(price),
-                pnl: fromInt(pnl),
+                closePrice: Math.round(fromInt(price) * 100),  // Schema uses closePrice, not closingPrice
+                Pnl: Math.round(fromInt(pnl) * 100),           // Schema uses Pnl (capital P), stored as Int
                 closedAt: new Date(),
                 closeReason: reason
             }
@@ -194,7 +194,7 @@ function checkOrderRisk(order: Order, currentPrice: number) {
     if (remainingMargin <= maintMargin) {
         reason = "LIQUIDATION";
     } else if (order.takeProfit && (
-        (order.side === "long" && currentPrice >= order.takeProfit) || 
+        (order.side === "long" && currentPrice >= order.takeProfit) ||
         (order.side === "short" && currentPrice <= order.takeProfit)
     )) {
         reason = "TAKE_PROFIT";
@@ -209,12 +209,22 @@ function checkOrderRisk(order: Order, currentPrice: number) {
 }
 
 async function handlePriceUpdate(payload: any) {
+    // Skip if payload doesn't have required fields (e.g., subscription confirmations)
+    // const data = payload.data || payload;
+
+    //console.log("price-Update payload", payload)
+
+    if (!payload || !payload.s || !payload.b || !payload.a) {
+        return;
+    }
+
     const { s, b, a } = payload;
     const symbol = s.replace("_USDC", "").toUpperCase();
     const bid = toInt(Number(b));
     const ask = toInt(Number(a));
 
     prices.set(symbol, { bid, ask })
+    // console.log("prices of trades:", prices)
 
     for (const order of orders.values()) {
         if (order.asset !== symbol) continue;
@@ -224,14 +234,18 @@ async function handlePriceUpdate(payload: any) {
 }
 
 async function handleCreateOrder(payload: any) {
+    console.log(`[DEBUG] handleCreateOrder received payload:`, JSON.stringify(payload, null, 2));
+
     const { id, userId, asset, side, qty, leverage, takeProfit, stopLoss } = payload;
+
+    console.log(`[DEBUG] Extracted qty: ${qty}, type: ${typeof qty}, Number(qty): ${Number(qty)}`);
 
     if (orders.has(id)) return;
 
     const priceData = prices.get(asset);
 
     if (!priceData) {
-        return sendCallback(id, "failed", { reason: "NO_PRICE" });
+        return sendCallback(id, "no_price", { reason: "Price data not available for asset" });
     }
 
     const openingPrice = side === "long" ? priceData.ask : priceData.bid;
@@ -239,11 +253,11 @@ async function handleCreateOrder(payload: any) {
     const lev = Number(leverage) || 1;
 
     const totalValue = multiplyInt(openingPrice, qtyInt);
-    const marginRequired = Math.round(totalValue/lev)
+    const marginRequired = Math.round(totalValue / lev)
 
     const userBal = getBalance(userId, "USDC");
     if (userBal < marginRequired) {
-        return sendCallback(id, "failed", { reason: "INSUFFICIENT_BALANCE"})
+        return sendCallback(id, "insufficient_balance", { reason: "Not enough balance for margin requirement" })
     }
 
     setBalance(userId, "USDC", userBal - marginRequired);
@@ -261,39 +275,49 @@ async function handleCreateOrder(payload: any) {
 
     orders.set(id, order);
 
+    const orderData = {
+        id,
+        userId,
+        symbol: asset,
+        side,
+        quantity: Math.round(Number(qty) * 100000),
+        quantityDecimals: 5,
+        leverage: lev,
+        openPrice: Math.round(fromInt(openingPrice) * 100),
+        priceDecimals: 2,
+        margin: Math.round(fromInt(marginRequired) * 100),
+        status: "open",
+        createdAt: new Date()
+    };
+
+    console.log(`[DB] Queuing order_create:`, JSON.stringify(orderData, null, 2));
+
     queueDbAction({
         type: "order_create",
-        data: {
-            id, userId, asset, side,
-            qty: Number(qty),
-            leverage: lev,
-            openingPrice: fromInt(openingPrice),
-            status: "open",
-            createdAt: new Date()
-        }
+        data: orderData
     })
-    
+
     console.log(`{Create} Order ${id} opened @ ${fromInt(openingPrice)}`);
-    sendCallback(id, "opened", { price: fromInt(openingPrice)})
+    sendCallback(id, "created", { price: fromInt(openingPrice) })
 }
 
 async function handleCloseOrder(payload: any) {
     const { orderId, userId } = payload;
     const order = orders.get(orderId);
-    
+
     if (!order || order.userId !== userId) {
-        return sendCallback(orderId || "unknown", "failed", { reason: "NOT_FOUND"})
+        return sendCallback(orderId || "unknown", "order_not_found", { reason: "Order not found or access denied" })
     }
 
     const priceData = prices.get(order.asset);
     const closePrice = priceData ? (order.side === "long" ? priceData.bid : priceData.ask) : order.openingPrice;
     const pnl = calcPnl(order.side, order.openingPrice, closePrice, order.qty);
 
-    executeClose(order, closePrice, "MANUAL", pnl);
+    executeClose(order, closePrice, "manual", pnl);
 }
 
 //ENGINE
-async function loadState(){
+async function loadState() {
     console.log("Loading State...")
 
     const dbOrders = await prisma.order.findMany({
@@ -322,8 +346,14 @@ async function loadState(){
     const dbBalances = await prisma.wallet.findMany();
     dbBalances.forEach((b: any) => {
         if (!balances.has(b.userId)) balances.set(b.userId, new Map());
-        const val = b.balanceRaw ? Number(b.balanceRaw) : 0;
-        balances.get(b.userId)!.set(b.symbol, toInt(val));
+        // Convert balanceRaw to engine's precision scale
+        // balanceRaw is stored with balanceDecimals precision, but engine uses PRECISION_SCALE (10^8)
+        const rawVal = b.balanceRaw ? Number(b.balanceRaw) : 0;
+        const decimals = b.balanceDecimals ?? 8;
+        // First get the actual decimal value, then scale to engine precision
+        const actualValue = rawVal / Math.pow(10, decimals);
+        const engineScaledValue = toInt(actualValue);
+        balances.get(b.userId)!.set(b.symbol, engineScaledValue);
     });
     console.log(`State Loaded: ${orders.size} orders.`);
 }
@@ -344,19 +374,28 @@ async function engine() {
 
                 try {
                     let rawData = ""
-                    for (let i = 0; i < fields.length; i+=2) {
-                        if (fields[i] === "data") rawData = fields[i+1] ?? ""
+                    for (let i = 0; i < fields.length; i += 2) {
+                        // httpServer uses "payload", pricePoller uses "data"
+                        if (fields[i] === "data" || fields[i] === "payload") {
+                            rawData = fields[i + 1] ?? ""
+                        }
                     }
                     if (!rawData) continue
 
                     const msg = JSON.parse(rawData)
-                    const type = msg.type || msg.requests?.kind;
-                    const payload = msg.data || msg.request?.payload;
+                    // Handle different message formats:
+                    // - httpServer: { kind: "create-order", payload: {...} }
+                    // - pricePoller: { kind: "price-update", payload: {...} }
+                    const kind = msg.kind || msg.type;
+                    const payload = msg.payload || msg.data;
 
-                    switch (type) {
-                        case "check_price": await handlePriceUpdate(payload); break;
-                        case "create_order": await handleCreateOrder(payload); break;
-                        case "close_request": await handleCloseOrder(payload); break; 
+                    // console.log(`[Engine] Received kind="${kind}"`)
+
+                    switch (kind) {
+                        case "price-update": await handlePriceUpdate(payload); break;
+                        case "create-order": await handleCreateOrder(payload); break;
+                        case "close-order": await handleCloseOrder(payload); break;
+                        default: console.log(`[Engine] Unknown kind: ${kind}, msg:`, JSON.stringify(msg).slice(0, 200));
                     }
                 } catch (error) {
                     console.error(`[SKIP] Malformed message ${id}:`, error);

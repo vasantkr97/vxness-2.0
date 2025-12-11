@@ -3,11 +3,10 @@ import { prisma } from "@vxness/db"
 import { randomUUID } from "crypto"
 import { dispatchToEngine } from "../redis.engine.client"
 import { CloseOrderBodySchema, CreateOrderBodySchema } from "../schemas/order.ZodType"
-import type { EngineCallbackStatus, UserBalance } from "@vxness/types"
 
 const ENGINE_TIMEOUT_MS = 10000;
-const PRICE_PRECISION = 1000;
-const QTY_PRECISION = 100;
+const PRICE_PRECISION = 100;
+const QTY_PRECISION = 100000;
 
 
 function mapEngineResponse(res: Response, status: any, orderId: string) {
@@ -23,7 +22,7 @@ function mapEngineResponse(res: Response, status: any, orderId: string) {
                 error: "Price not available",
                 message: "Market price is currently unavailable. Please try again later.",
             });
-        
+
         case "invalid_size":
             return res.status(400).json({
                 error: "Invalid size",
@@ -42,7 +41,7 @@ function mapEngineResponse(res: Response, status: any, orderId: string) {
                 error: "Order Closed",
                 message: "The Order cannot be closed because it is not open or does not exists."
             })
-        
+
         default:
             console.error(`[Order] Unhandled engine status '${status}' for order ${orderId}`)
             return res.status(500).json({ error: "Execution Error", message: "The order Engine returned an unexpected status." })
@@ -52,38 +51,38 @@ function mapEngineResponse(res: Response, status: any, orderId: string) {
 function transformOrder(order: any) {
     return {
         id: order.id,
-        symbol: order.market || order.symbol || "BTC",
+        symbol: order.symbol || "BTC",
         orderType: order.side === "long" ? "long" : "short",
-        quantity: order.qty / QTY_PRECISION,
-        price: order.openingPrice / PRICE_PRECISION,
+        quantity: order.quantity != null ? order.quantity / QTY_PRECISION : null,
+        price: order.openPrice != null ? order.openPrice / PRICE_PRECISION : null,
         status: order.status,
-        pnl: order.pnl / PRICE_PRECISION,
+        pnl: order.Pnl != null ? order.Pnl / PRICE_PRECISION : null,
         createdAt: order.createdAt.toISOString(),
         closedAt: order.closedAt?.toISOString(),
-        exitPrice: order.closingPrice ? order.closingPrice / PRICE_PRECISION : undefined,
+        exitPrice: order.closePrice != null ? order.closePrice / PRICE_PRECISION : undefined,
         leverage: order.leverage,
-        takeProfit: order.takeProfit ? order.takeProfit / PRICE_PRECISION : undefined,
-        stopLoss: order.stopLoss ? order.stopLoss / PRICE_PRECISION : undefined,
+        takeProfit: order.takeProfitPrice != null ? order.takeProfitPrice / PRICE_PRECISION : undefined,
+        stopLoss: order.stopLossPrice != null ? order.stopLossPrice / PRICE_PRECISION : undefined,
         closeReason: order.closeReason,
     }
 }
 
-async function getUserBalanceSnapshot(userId: string): Promise<UserBalance[]> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-            wallets: {
-                select: {
-                    symbol: true,
-                    balanceRaw: true,
-                    balanceDecimals: true
-                }
-            }
-        }
-    })
+// async function getUserBalanceSnapshot(userId: string): Promise<UserBalance[]> {
+//     const user = await prisma.user.findUnique({
+//         where: { id: userId },
+//         select: {
+//             wallets: {
+//                 select: {
+//                     symbol: true,
+//                     balanceRaw: true,
+//                     balanceDecimals: true
+//                 }
+//             }
+//         }
+//     })
 
-    return user?.wallets ?? [];
-}
+//     return user?.wallets ?? [];
+// }
 
 
 //Create Order
@@ -103,8 +102,6 @@ export const createOrder = async (req: Request, res: Response) => {
         const { asset, side, qty, leverage, takeProfit, stopLoss } = validation.data;
         const orderId = randomUUID();
 
-        const balanceSnapshot = await getUserBalanceSnapshot(userId)
-
         const payload = {
             kind: "create-order",
             payload: {
@@ -118,7 +115,6 @@ export const createOrder = async (req: Request, res: Response) => {
 
                 takeProfit: takeProfit != null ? Number(takeProfit) : null,
                 stopLoss: stopLoss != null ? Number(stopLoss) : null,
-                balanceSnapshot: balanceSnapshot,
                 enqueuedAt: Date.now(),
             },
         };
@@ -141,7 +137,7 @@ export const createOrder = async (req: Request, res: Response) => {
     } catch (err: any) {
         if (err.message?.includes("timeout")) {
             console.error(`[Order] Timeout creating order.`)
-            return res.status(504).json({ error: "Gateway Timeout", message: "Order creation timed out. Please check your open orders."})
+            return res.status(504).json({ error: "Gateway Timeout", message: "Order creation timed out. Please check your open orders." })
         }
         console.error("[Order] createOrder error:", err);
         return res.status(500).json({ error: "Internal server error" });
@@ -207,7 +203,7 @@ export const CloseOrder = async (req: Request, res: Response) => {
             return res.status(200).json({
                 message: "Order closed successfully",
                 orderId,
-                finalPnl: engineResponse.pnl  
+                finalPnl: engineResponse.pnl
             });
         }
 
@@ -215,7 +211,7 @@ export const CloseOrder = async (req: Request, res: Response) => {
 
     } catch (err: any) {
         if (err.message?.includes("timeout")) {
-            return res.status(504).json({ error: "Gateway Timeout", message: "Closing order timed out. Check status."})
+            return res.status(504).json({ error: "Gateway Timeout", message: "Closing order timed out. Check status." })
         }
         console.error("[Order] closeOrder error:", err)
         return res.status(500).json({ error: "Internal Server Error" })
