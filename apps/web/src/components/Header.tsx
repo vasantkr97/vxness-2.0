@@ -1,19 +1,53 @@
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useTicker } from '../hooks/useBackpackWs';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { useBalances } from '../hooks/useBalances';
+import { useTrade } from '../context/TradeContext';
+
+// Component for displaying price with flash animation
+const FlashPrice: React.FC<{ value: number; className?: string; updatedAt?: number }> = ({ 
+  value, 
+  className = '',
+  updatedAt = 0
+}) => {
+  const [flash, setFlash] = useState(false);
+  const prevValueRef = useRef(value);
+  
+  // Flash on value change or fresh update
+  useEffect(() => {
+    // If we have a valid update and (value changed OR it's a new tick)
+    if (value > 0 && (prevValueRef.current !== value || updatedAt > 0)) {
+      setFlash(true);
+      const timer = setTimeout(() => setFlash(false), 300);
+      prevValueRef.current = value;
+      return () => clearTimeout(timer);
+    }
+    prevValueRef.current = value;
+  }, [value, updatedAt]); 
+
+  return (
+    <span 
+      className={`${className} transition-colors duration-150 ${flash ? 'text-yellow-400' : ''}`}
+    >
+      ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+    </span>
+  );
+};
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  
+  // Get current asset from global state
+  const { currentAsset } = useTrade();
 
   // Data hooks
   const { data: balances } = useBalances();
-  const { price: btcPrice } = useTicker('BTC');
-  const { price: ethPrice } = useTicker('ETH');
+  // Fetch price for the currently selected asset
+  const { price, updatedAt } = useTicker(currentAsset);
 
   // Calculate total estimated balance
   const totalBalance = React.useMemo(() => {
@@ -36,19 +70,19 @@ export const Header: React.FC = () => {
     <header className="h-16 bg-dark-800 border-b border-dark-600/50 flex items-center justify-between px-6 sticky top-0 z-50">
       <div className="flex items-center gap-6">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center font-bold text-white">N</div>
-          <span className="font-bold text-xl tracking-tight hidden sm:block">NovaTrade</span>
+          <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center font-bold text-white">V</div>
+          <span className="font-bold text-xl tracking-tight hidden sm:block">vxness</span>
         </Link>
 
         {user && (
           <div className="hidden md:flex items-center gap-4 pl-6 border-l border-dark-600/50">
             <div className="flex flex-col">
-              <span className="text-xs text-muted">BTC</span>
-              <span className="text-sm font-semibold text-white">${btcPrice.toLocaleString()}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs text-muted">ETH</span>
-              <span className="text-sm font-semibold text-white">${ethPrice.toLocaleString()}</span>
+              <span className="text-xs text-muted">
+                {currentAsset.includes('_') ? currentAsset.replace('_', '/') : `${currentAsset}/USDC`}
+              </span>
+              <span className="text-sm font-semibold text-white">
+                <FlashPrice value={price} updatedAt={updatedAt} />
+              </span>
             </div>
           </div>
         )}
@@ -68,7 +102,7 @@ export const Header: React.FC = () => {
           </>
         ) : (
           <Link to="/login">
-            <Button variant="primary" className="text-sm px-6">Sign In</Button>
+            {/* <Button variant="primary" className="text-sm px-6"></Button> */}
           </Link>
         )}
       </div>

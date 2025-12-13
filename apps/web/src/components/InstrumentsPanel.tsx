@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useBackpackWs } from '../hooks/useBackpackWs';
 
 interface InstrumentsPanelProps {
@@ -7,6 +7,34 @@ interface InstrumentsPanelProps {
   onSelectAsset: (asset: string) => void;
   className?: string;
 }
+
+// Component for displaying price with flash animation
+const FlashPrice: React.FC<{ value: number; className?: string; updatedAt?: number }> = ({ 
+  value, 
+  className = '',
+  updatedAt = 0
+}) => {
+  const [flash, setFlash] = useState(false);
+  const prevValueRef = useRef(value);
+  
+  useEffect(() => {
+    if (prevValueRef.current !== value && prevValueRef.current > 0) {
+      setFlash(true);
+      const timer = setTimeout(() => setFlash(false), 300);
+      prevValueRef.current = value;
+      return () => clearTimeout(timer);
+    }
+    prevValueRef.current = value;
+  }, [value, updatedAt]);
+
+  return (
+    <span 
+      className={`${className} transition-colors duration-150 ${flash ? 'text-yellow-400' : ''}`}
+    >
+      {value.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+    </span>
+  );
+};
 
 export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({ currentAsset, onSelectAsset, className = '' }) => {
   const [search, setSearch] = useState('');
@@ -85,10 +113,10 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({ currentAsset
                              </div>
                         </div>
                         <div className={`text-right text-sm font-mono whitespace-nowrap flex items-center justify-end ${ticker.change24h >= 0 ? 'text-success' : 'text-danger'}`}>
-                            {ticker.bid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            <FlashPrice value={ticker.bid} updatedAt={ticker.updatedAt} />
                         </div>
                         <div className="text-right text-sm font-mono whitespace-nowrap flex items-center justify-end text-muted">
-                            {ticker.ask.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            <FlashPrice value={ticker.ask} updatedAt={ticker.updatedAt} />
                         </div>
                     </div>
                 );

@@ -1,8 +1,18 @@
 import type { Request, Response } from "express"
 import { redis } from "@vxness/redis"
 import { prisma } from "@vxness/db"
+import { SYMBOL_DECIMALS, type Symbol } from "@vxness/types"
 
 import { GetWalletBalanceBySymbol, DepositWalletBalanceBySymbol, type DepositWalletType } from "../schemas/balance.zodType"
+
+// Helper to transform wallet data for JSON serialization
+function transformWallet(wallet: { symbol: string; balanceRaw: bigint; balanceDecimals: number }) {
+    return {
+        symbol: wallet.symbol,
+        balanceRaw: wallet.balanceRaw.toString(),
+        balanceDecimals: wallet.balanceDecimals
+    }
+}
 
 
 
@@ -25,9 +35,9 @@ export const getBalance = async (req: Request, res: Response) => {
             }
         })
 
-        return res.json({ 
-            userId, 
-            balances 
+        return res.json({
+            userId,
+            balances: balances.map(transformWallet)
         })
     } catch (error) {
         return res.status(500).json({
@@ -61,7 +71,7 @@ export const getBalanceBySymbol = async (req: Request, res: Response) => {
         const wallet = await prisma.wallet.findUnique({
             where: {
                 userId_symbol: {
-                    userId, 
+                    userId,
                     symbol
                 }
             },
@@ -78,7 +88,7 @@ export const getBalanceBySymbol = async (req: Request, res: Response) => {
             })
         }
 
-        return res.json(wallet)
+        return res.json(transformWallet(wallet))
     } catch (error) {
         return res.status(400).json({
             msg: "Failed to fetch wallet balances for assets",
@@ -91,7 +101,7 @@ export const depositToWallet = async (req: Request, res: Response) => {
     const userId = req.user?.id
 
     if (!userId) {
-        return res.status(401).json({ error: "Unauthorized"})
+        return res.status(401).json({ error: "Unauthorized" })
     }
 
     const parseResult = DepositWalletBalanceBySymbol.safeParse(req.body);
@@ -106,15 +116,26 @@ export const depositToWallet = async (req: Request, res: Response) => {
     const query: DepositWalletType = parseResult.data
 
     const { symbol, amount, decimals } = query
-    const decimalPlaces = decimals ?? 8
+
+    // Get the correct decimals for this cryptocurrency
+    const correctDecimals = SYMBOL_DECIMALS[symbol as Symbol];
+
+    // If decimals provided, validate it matches the symbol's required decimals
+    if (decimals !== undefined && decimals !== correctDecimals) {
+        return res.status(400).json({
+            error: `Invalid decimals for ${symbol}. Expected ${correctDecimals}, got ${decimals}`
+        })
+    }
+
+    const decimalPlaces = correctDecimals;
 
     if (amount <= 0) {
-        return res.status(400).json({ error: "Amount must be positive"})
+        return res.status(400).json({ error: "Amount must be positive" })
     }
     const baseUnitAmount = BigInt(Math.round(amount * Math.pow(10, decimalPlaces)))
 
     if (baseUnitAmount <= 0n) {
-        return res.status(400).json({ error: "invalid amount"})
+        return res.status(400).json({ error: "invalid amount" })
     }
 
     try {
@@ -152,7 +173,7 @@ export const depositToWallet = async (req: Request, res: Response) => {
                     payload: {
                         userId,
                         symbol: updatedWallet.symbol,
-                        newBalanceRaw: updatedWallet.balanceRaw,
+                        newBalanceRaw: updatedWallet.balanceRaw.toString(),
                         newBalanceDecimals: updatedWallet.balanceDecimals
                     }
                 })
@@ -161,10 +182,10 @@ export const depositToWallet = async (req: Request, res: Response) => {
             console.error("Failed to publish balance update to trading-engine stream:", error)
         }
 
-        return res.json(updatedWallet)
-        
+        return res.json(transformWallet(updatedWallet))
+
     } catch (err) {
         console.error("depositToWallet:", err)
-        return res.status(500).json({ error: "Failed to process deposit"})
+        return res.status(500).json({ error: "Failed to process deposit" })
     }
 }

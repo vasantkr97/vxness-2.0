@@ -5,6 +5,7 @@ import { OrderForm } from '../components/OrderForm';
 import { PositionsTable } from '../components/PositionsTable';
 import { InstrumentsPanel } from '../components/InstrumentsPanel';
 import { useAuth } from '../hooks/useAuth';
+import { useTrade } from '../context/TradeContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
@@ -94,7 +95,7 @@ const InlineAuthForm = () => {
 
 export const Trade: React.FC = () => {
   const { user } = useAuth();
-  const [asset, setAsset] = useState<string>('BTC');
+  const { currentAsset: asset, setAsset } = useTrade();
 
   // Layout State
   const [leftWidth, setLeftWidth] = useState(280);

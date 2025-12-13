@@ -5,7 +5,7 @@ import dotenv from "dotenv"
 import authRoutes from "./routes/auth.routes"
 import balanceRoutes from "./routes/balance.routes"
 import candlesRoutes from "./routes/candles.routes"
-import tradeRoutes from "./routes/orders.routes"
+import orderRoutes from "./routes/orders.routes"
 
 dotenv.config();
 
@@ -34,7 +34,7 @@ app.get("/health", (req, res) => {
 app.use("/api/candles", candlesRoutes)
 app.use("/api/auth", authRoutes)
 app.use("/api/balance", balanceRoutes)
-app.use("/api/orders", tradeRoutes)
+app.use("/api/orders", orderRoutes)
 
 app.listen(PORT, () => {
     console.log(`API Service running on port ${PORT}`)

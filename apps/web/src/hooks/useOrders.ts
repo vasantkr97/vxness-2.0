@@ -7,15 +7,15 @@ export const useOrders = () => {
   return useQuery({
     queryKey: ['orders'],
     queryFn: ordersService.getAll,
-    staleTime: 5000, // 5 seconds
-    refetchInterval: 10000, // Refetch every 10 seconds for live PnL updates
+    staleTime: 2000, // 2 seconds
+    refetchInterval: 3000, // Refetch every 3 seconds for quicker updates
     retry: false,
   });
 };
 
 export const useCreateOrder = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: (data: CreateOrderRequest) => ordersService.create(data),
     onSuccess: () => {
@@ -27,13 +27,18 @@ export const useCreateOrder = () => {
 
 export const useCloseOrder = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: ({ orderId, closeReason }: { orderId: string; closeReason?: string }) =>
       ordersService.close(orderId, closeReason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['balances'] });
+    },
+    onError: (error: Error) => {
+      console.error('[useCloseOrder] Failed to close order:', error.message);
+      // Invalidate to get fresh state even on error
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
   });
 };

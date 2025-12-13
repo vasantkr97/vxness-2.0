@@ -2,6 +2,7 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { TradeProvider } from './context/TradeContext';
 import { Header } from './components/Header';
 import { Trade } from './pages/Trade';
 import { Wallet } from './pages/Wallet';
@@ -10,9 +11,9 @@ import { Signup } from './pages/Signup';
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth();
-  
+
   if (loading) return <div className="h-screen flex items-center justify-center bg-dark-900 text-muted">Loading...</div>;
-  
+
   return user ? <Outlet /> : <Navigate to="/login" replace />;
 };
 
@@ -30,20 +31,22 @@ const Layout = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            
-            {/* Protected Routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Trade />} />
-              <Route path="/wallet" element={<Wallet />} />
+      <TradeProvider>
+        <Router>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+
+              {/* Protected Routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<Trade />} />
+                <Route path="/wallet" element={<Wallet />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
-      </Router>
+          </Routes>
+        </Router>
+      </TradeProvider>
     </AuthProvider>
   );
 };

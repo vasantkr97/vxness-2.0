@@ -6,3 +6,6 @@ export type { Order, CreateOrderPayload, PriceData, EngineMessage, CloseOrderPay
 
 // Candle types
 export type { CandleResponse, UpstreamCandle } from "./candle.type";
+
+export { ORDER_PRECISION, SYMBOL_DECIMALS } from "./constants";
+export type { Symbol } from "./constants";

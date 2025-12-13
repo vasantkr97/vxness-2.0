@@ -27,7 +27,7 @@ export async function auth(req: Request, res: Response, next: NextFunction): Pro
                 status: "error",
                 message: "Unauthorized user"
             })
-            return 
+            return
         }
 
         let payload: AuthTokenPayload;
@@ -35,12 +35,12 @@ export async function auth(req: Request, res: Response, next: NextFunction): Pro
         payload = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
 
         const user = await prisma.user.findUnique({
-            where: { id: payload.id},
+            where: { id: payload.id },
             select: { id: true, email: true }
         });
 
         if (!user) {
-            res.status(401).json({ status: "error", message: "User not found"})
+            res.status(401).json({ status: "error", message: "User not found" })
             return
         }
 
@@ -48,9 +48,10 @@ export async function auth(req: Request, res: Response, next: NextFunction): Pro
         req.user = { id: user.id, email: user.email }
         next();
     } catch (error) {
+        console.error("Auth middleware error:", error);
         res.status(500).json({
             error: "invalid or expired token"
         })
-        next(error)
+        return
     }
 }

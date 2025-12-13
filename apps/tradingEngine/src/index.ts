@@ -1,5 +1,6 @@
 import { prisma } from "@vxness/db";
 import { createRedisClient } from "@vxness/redis"
+import { ORDER_PRECISION, SYMBOL_DECIMALS, type Symbol } from "@vxness/types"
 
 
 const CONFIG = {
@@ -11,6 +12,10 @@ const CONFIG = {
     MARGIN_THRESHOLD: 0.05,
     MAX_QUEUE_SIZE: 10000,
 }
+
+// Polyfill for JSON.stringify of BigInt
+// @ts-ignore
+BigInt.prototype.toJSON = function() { return this.toString() }
 
 type Side = "long" | "short"
 
@@ -29,7 +34,7 @@ interface Order {
 }
 
 interface DBTask {
-    type: "balance" | "order_create" | "order_close";
+    type: "balance-update" | "order_create" | "order_close";
     data: any;
 }
 
@@ -70,6 +75,7 @@ const calcPnl = (side: Side, entry: number, current: number, qty: number): numbe
 function queueDbAction(action: DBTask) {
     if (dbQueue.length >= CONFIG.MAX_QUEUE_SIZE) {
         console.error(`[DB] Queue overflow! Size: ${dbQueue.length}. Dropping oldest tasks.`)
+        dbQueue.shift();
     }
     dbQueue.push(action)
 }
@@ -86,13 +92,22 @@ async function processDbQueue() {
     try {
         for (const task of batch) {
             try {
-                if (task.type === "balance") {
+                if (task.type === "balance-update") {
                     const { userId, symbol, balance } = task.data;
+
+                    // Get the correct decimals for this symbol
+                    const decimals = SYMBOL_DECIMALS[symbol as Symbol] ?? 8;
+
+                    // Convert from engine precision (100_000_000) to actual value
+                    const actualValue = fromInt(balance);
+
+                    // Convert to database format using symbol-specific decimals
+                    const balanceRaw = BigInt(Math.round(actualValue * Math.pow(10, decimals)));
 
                     await prisma.wallet.upsert({
                         where: { userId_symbol: { userId, symbol } },
-                        create: { userId, symbol, balanceRaw: BigInt(Math.round(fromInt(balance))), balanceDecimals: 8 },
-                        update: { balanceRaw: BigInt(Math.round(fromInt(balance))) }
+                        create: { userId, symbol, balanceRaw, balanceDecimals: decimals },
+                        update: { balanceRaw }
                     });
                 }
 
@@ -137,7 +152,7 @@ function setBalance(userId: string, symbol: string, amount: number) {
     balances.get(userId)!.set(symbol, amount);
 
     queueDbAction({
-        type: "balance",
+        type: "balance-update",
         data: { userId, symbol, balance: amount }
     })
 }
@@ -165,16 +180,26 @@ function executeClose(order: Order, price: number, reason: string, pnl: number) 
 
     orders.delete(order.id);
 
+    // Map reason to Prisma CloseReason enum values (lowercase with underscores)
+    const closeReasonMap: Record<string, string> = {
+        'TAKE_PROFIT': 'take_profit',
+        'STOP_LOSS': 'stop_loss',
+        'LIQUIDATION': 'liquidation',
+        'manual': 'manual',
+        'Manual': 'manual',
+    };
+    const dbCloseReason = closeReasonMap[reason] || 'manual';
+
     queueDbAction({
         type: "order_close",
         data: {
             id: order.id,
             update: {
                 status: 'closed',
-                closePrice: Math.round(fromInt(price) * 100),  // Schema uses closePrice, not closingPrice
-                Pnl: Math.round(fromInt(pnl) * 100),           // Schema uses Pnl (capital P), stored as Int
+                closePrice: Math.round(fromInt(price) * ORDER_PRECISION.PRICE),  // Schema uses closePrice, not closingPrice
+                Pnl: Math.round(fromInt(pnl) * ORDER_PRECISION.PRICE),           // Schema uses Pnl (capital P), stored as Int
                 closedAt: new Date(),
-                closeReason: reason
+                closeReason: dbCloseReason
             }
         }
     });
@@ -239,10 +264,12 @@ async function handleCreateOrder(payload: any) {
     const { id, userId, asset, side, qty, leverage, takeProfit, stopLoss } = payload;
 
     console.log(`[DEBUG] Extracted qty: ${qty}, type: ${typeof qty}, Number(qty): ${Number(qty)}`);
+    
+    const normalizedAsset = asset.toUpperCase();
 
     if (orders.has(id)) return;
 
-    const priceData = prices.get(asset);
+    const priceData = prices.get(normalizedAsset);
 
     if (!priceData) {
         return sendCallback(id, "no_price", { reason: "Price data not available for asset" });
@@ -263,7 +290,7 @@ async function handleCreateOrder(payload: any) {
     setBalance(userId, "USDC", userBal - marginRequired);
 
     const order: Order = {
-        id, userId, asset, side,
+        id, userId, asset: normalizedAsset, side,
         qty: qtyInt,
         leverage: lev,
         openingPrice,
@@ -278,14 +305,14 @@ async function handleCreateOrder(payload: any) {
     const orderData = {
         id,
         userId,
-        symbol: asset,
+        symbol: normalizedAsset,
         side,
-        quantity: Math.round(Number(qty) * 100000),
+        quantity: Math.round(Number(qty) * ORDER_PRECISION.QUANTITY),
         quantityDecimals: 5,
         leverage: lev,
-        openPrice: Math.round(fromInt(openingPrice) * 100),
+        openPrice: Math.round(fromInt(openingPrice) * ORDER_PRECISION.PRICE),
         priceDecimals: 2,
-        margin: Math.round(fromInt(marginRequired) * 100),
+        margin: Math.round(fromInt(marginRequired) * ORDER_PRECISION.PRICE),
         status: "open",
         createdAt: new Date()
     };
@@ -300,6 +327,7 @@ async function handleCreateOrder(payload: any) {
     console.log(`{Create} Order ${id} opened @ ${fromInt(openingPrice)}`);
     sendCallback(id, "created", { price: fromInt(openingPrice) })
 }
+
 
 async function handleCloseOrder(payload: any) {
     const { orderId, userId } = payload;
@@ -316,6 +344,36 @@ async function handleCloseOrder(payload: any) {
     executeClose(order, closePrice, "manual", pnl);
 }
 
+
+async function handleBalanceUpdate(payload: any) {
+    const { userId, symbol, newBalanceRaw, newBalanceDecimals } = payload;
+
+    if (!userId || !symbol || newBalanceRaw === undefined) {
+        console.error("[Balance-Update] missing required fields:", payload);
+        return;
+    }
+
+    try {
+        //convert from database format to actual decimal value
+        //newBalanceRaw is a string representing a BigInt value
+        const rawValue = Number(newBalanceRaw)
+        const decimals = newBalanceDecimals ?? SYMBOL_DECIMALS[symbol as Symbol] ?? 8;
+        const actualValue = rawValue / Math.pow(10, decimals);
+
+        //convert to engine's internal precision (100_000_000)
+        const engineScaledValue = toInt(actualValue);
+
+        if (!balances.has(userId)) {
+            balances.set(userId, new Map());
+        }
+        balances.get(userId)!.set(symbol, engineScaledValue);
+
+        console.log(`[Balance-Update] ${userId} | ${symbol} | ${actualValue} (engine: ${engineScaledValue})`);
+    } catch (error) {
+        console.log('[Balance-Update] Error processing balance update:', error)
+    }
+}
+
 //ENGINE
 async function loadState() {
     console.log("Loading State...")
@@ -326,33 +384,45 @@ async function loadState() {
 
 
     dbOrders.forEach((order: any) => {
+        // Database uses openPrice (Int) and quantity (Int) with ORDER_PRECISION
+        // Need to convert from DB format to engine format
+        const openPriceFromDb = Number(order.openPrice) / ORDER_PRECISION.PRICE;  // Convert from Int to actual price
+        const quantityFromDb = Number(order.quantity) / ORDER_PRECISION.QUANTITY;  // Convert from Int to actual quantity
 
-        const opPrice = Number(order.openingPrice);
-        const q = Number(order.qty);
+        const opPrice = toInt(openPriceFromDb);  // Convert to engine precision
+        const q = toInt(quantityFromDb);         // Convert to engine precision
 
         orders.set(order.id, {
-            id: order.id, userId: order.userId, asset: order.asset, side: order.side as Side,
-            qty: toInt(q),
+            id: order.id, 
+            userId: order.userId, 
+            asset: order.symbol,  // DB uses 'symbol', not 'asset'
+            side: order.side as Side,
+            qty: q,
             leverage: order.leverage,
-            openingPrice: toInt(opPrice),
-
-            initialMargin: toInt(opPrice * q) / order.leverage,
-            takeProfit: order.takeProfit ? toInt(order.takeProfit) : undefined,
-            stopLoss: order.stopLoss ? toInt(order.stopLoss) : undefined,
+            openingPrice: opPrice,
+            initialMargin: multiplyInt(opPrice, q) / order.leverage,
+            takeProfit: order.takeProfitPrice ? toInt(Number(order.takeProfitPrice) / ORDER_PRECISION.PRICE) : undefined,
+            stopLoss: order.stopLossPrice ? toInt(Number(order.stopLossPrice) / ORDER_PRECISION.PRICE) : undefined,
             createdAt: order.createdAt.getTime()
         });
+        
+        console.log(`[LoadState] Loaded order ${order.id}: ${order.side} ${order.symbol} @ ${openPriceFromDb}`);
     })
 
     const dbBalances = await prisma.wallet.findMany();
     dbBalances.forEach((b: any) => {
         if (!balances.has(b.userId)) balances.set(b.userId, new Map());
-        // Convert balanceRaw to engine's precision scale
-        // balanceRaw is stored with balanceDecimals precision, but engine uses PRECISION_SCALE (10^8)
+        
+        // Get decimals from database (this is the authoritative source)
+        const decimals = b.balanceDecimals ?? SYMBOL_DECIMALS[b.symbol as Symbol] ?? 8;
         const rawVal = b.balanceRaw ? Number(b.balanceRaw) : 0;
-        const decimals = b.balanceDecimals ?? 8;
-        // First get the actual decimal value, then scale to engine precision
+        
+        // Convert from database format to actual decimal value
         const actualValue = rawVal / Math.pow(10, decimals);
+        
+        // Convert to engine's internal precision (100_000_000)
         const engineScaledValue = toInt(actualValue);
+        
         balances.get(b.userId)!.set(b.symbol, engineScaledValue);
     });
     console.log(`State Loaded: ${orders.size} orders.`);
@@ -395,6 +465,7 @@ async function engine() {
                         case "price-update": await handlePriceUpdate(payload); break;
                         case "create-order": await handleCreateOrder(payload); break;
                         case "close-order": await handleCloseOrder(payload); break;
+                        case "balance-update": await handleBalanceUpdate(payload); break;
                         default: console.log(`[Engine] Unknown kind: ${kind}, msg:`, JSON.stringify(msg).slice(0, 200));
                     }
                 } catch (error) {

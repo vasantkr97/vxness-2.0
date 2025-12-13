@@ -29,6 +29,7 @@
     "jsonwebtoken": "^9.0.2",
     "zod": "^4.1.13",
     "@vxness/redis": "workspace:*",
-    "@vxness/db": "workspace:*"
+    "@vxness/db": "workspace:*",
+    "@vxness/types": "workspace:*"
   }
 }

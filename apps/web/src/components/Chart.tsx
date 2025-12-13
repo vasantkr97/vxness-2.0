@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, type IChartApi, type ISeriesApi } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, type ISeriesApi } from 'lightweight-charts';
 import { useCandles } from '../hooks/useCandles';
 
 interface ChartProps {
@@ -11,8 +11,8 @@ const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 
 export const Chart: React.FC<ChartProps> = ({ asset }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [chart, setChart] = useState<IChartApi | null>(null);
-  const [series, setSeries] = useState<ISeriesApi<any> | null>(null);
+  //const [chart, setChart] = useState<IChartApi | null>(null);
+  const [series, setSeries] = useState<ISeriesApi<'Candlestick'> | null>(null);
   const [timeFrame, setTimeFrame] = useState('1h');
 
   // Fetch Data using React Query
@@ -42,7 +42,8 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
       },
     });
 
-    const candlestickSeries = (chartInstance as any).addCandlestickSeries({
+    // lightweight-charts v5 uses addSeries() with series type as first argument
+    const candlestickSeries = chartInstance.addSeries(CandlestickSeries, {
       upColor: '#22c55e', // success
       downColor: '#ef4444', // danger
       borderVisible: false,
@@ -50,7 +51,7 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
       wickDownColor: '#ef4444',
     });
 
-    setChart(chartInstance);
+
     setSeries(candlestickSeries);
 
     const handleResize = () => {
@@ -71,53 +72,64 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
   useEffect(() => {
     if (!series || !candles) return;
 
-    const formattedData = candles.map((c: any) => ({
-      time: c.time as any,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    })).sort((a: any, b: any) => (a.time as number) - (b.time as number));
-    
+    const formattedData = candles.map((c: any) => {
+      // Convert time to Unix timestamp (seconds) if it's a string
+      let time = c.time;
+      if (typeof time === 'string') {
+        // Parse datetime string like "2025-11-13 05:00:00" to Unix timestamp
+        time = Math.floor(new Date(time).getTime() / 1000);
+      } else if (typeof time === 'number' && time > 1e12) {
+        // If it's already a timestamp in milliseconds, convert to seconds
+        time = Math.floor(time / 1000);
+      }
+
+      return {
+        time: time as any,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      };
+    }).sort((a: any, b: any) => (a.time as number) - (b.time as number));
+
     series.setData(formattedData);
   }, [series, candles]);
 
   return (
     <div className="bg-dark-800 rounded-xl border border-dark-600/50 overflow-hidden flex flex-col h-full">
       <div className="p-4 border-b border-dark-600/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-         <div className="flex items-center gap-4">
-            <h2 className="font-semibold text-lg text-white">{asset}</h2>
-            {/* Timeframe Selector */}
-            <div className="flex gap-1 bg-dark-700/50 p-1 rounded-lg overflow-x-auto max-w-full">
-              {TIMEFRAMES.map((tf) => (
-                <button
-                  key={tf}
-                  onClick={() => setTimeFrame(tf)}
-                  className={`px-2 py-1 text-xs font-medium rounded transition-all whitespace-nowrap ${
-                    timeFrame === tf 
-                      ? 'bg-dark-600 text-white shadow-sm' 
-                      : 'text-muted hover:text-white hover:bg-dark-600/50'
+        <div className="flex items-center gap-4">
+          <h2 className="font-semibold text-lg text-white">{asset}</h2>
+          {/* Timeframe Selector */}
+          <div className="flex gap-1 bg-dark-700/50 p-1 rounded-lg overflow-x-auto max-w-full">
+            {TIMEFRAMES.map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setTimeFrame(tf)}
+                className={`px-2 py-1 text-xs font-medium rounded transition-all whitespace-nowrap ${timeFrame === tf
+                    ? 'bg-dark-600 text-white shadow-sm'
+                    : 'text-muted hover:text-white hover:bg-dark-600/50'
                   }`}
-                >
-                  {tf.toUpperCase()}
-                </button>
-              ))}
-            </div>
-         </div>
-         <div className="hidden sm:flex gap-2 text-sm text-muted">
-            {isLoading ? (
-                <span>Loading chart data...</span>
-            ) : isError ? (
-                <span className="text-danger">Failed to load chart</span>
-            ) : (
-                <>
-                    <span>O: <span className="text-white">--</span></span>
+              >
+                {tf.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="hidden sm:flex gap-2 text-sm text-muted">
+          {isLoading ? (
+            <span>Loading chart data...</span>
+          ) : isError ? (
+            <span className="text-danger">Failed to load chart</span>
+          ) : (
+            <>
+              {/* <span>O: <span className="text-white">--</span></span>
                     <span>H: <span className="text-white">--</span></span>
                     <span>L: <span className="text-white">--</span></span>
-                    <span>C: <span className="text-white">--</span></span>
-                </>
-            )}
-         </div>
+                    <span>C: <span className="text-white">--</span></span> */}
+            </>
+          )}
+        </div>
       </div>
       <div ref={chartContainerRef} className="flex-1 w-full min-h-[400px]" />
     </div>

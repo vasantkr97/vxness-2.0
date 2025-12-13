@@ -1,12 +1,11 @@
 import type { Request, Response } from "express"
 import { prisma } from "@vxness/db"
+import { ORDER_PRECISION } from "@vxness/types"
 import { randomUUID } from "crypto"
 import { dispatchToEngine } from "../redis.engine.client"
 import { CloseOrderBodySchema, CreateOrderBodySchema } from "../schemas/order.ZodType"
 
 const ENGINE_TIMEOUT_MS = 10000;
-const PRICE_PRECISION = 100;
-const QTY_PRECISION = 100000;
 
 
 function mapEngineResponse(res: Response, status: any, orderId: string) {
@@ -53,16 +52,16 @@ function transformOrder(order: any) {
         id: order.id,
         symbol: order.symbol || "BTC",
         orderType: order.side === "long" ? "long" : "short",
-        quantity: order.quantity != null ? order.quantity / QTY_PRECISION : null,
-        price: order.openPrice != null ? order.openPrice / PRICE_PRECISION : null,
+        quantity: order.quantity != null ? Number(order.quantity) / ORDER_PRECISION.QUANTITY : null,
+        price: order.openPrice != null ? Number(order.openPrice) / ORDER_PRECISION.PRICE : null,
         status: order.status,
-        pnl: order.Pnl != null ? order.Pnl / PRICE_PRECISION : null,
+        pnl: order.Pnl != null ? Number(order.Pnl) / ORDER_PRECISION.PRICE : null,
         createdAt: order.createdAt.toISOString(),
         closedAt: order.closedAt?.toISOString(),
-        exitPrice: order.closePrice != null ? order.closePrice / PRICE_PRECISION : undefined,
+        exitPrice: order.closePrice != null ? Number(order.closePrice) / ORDER_PRECISION.PRICE : undefined,
         leverage: order.leverage,
-        takeProfit: order.takeProfitPrice != null ? order.takeProfitPrice / PRICE_PRECISION : undefined,
-        stopLoss: order.stopLossPrice != null ? order.stopLossPrice / PRICE_PRECISION : undefined,
+        takeProfit: order.takeProfitPrice != null ? Number(order.takeProfitPrice) / ORDER_PRECISION.PRICE : undefined,
+        stopLoss: order.stopLossPrice != null ? Number(order.stopLossPrice) / ORDER_PRECISION.PRICE : undefined,
         closeReason: order.closeReason,
     }
 }
@@ -197,7 +196,7 @@ export const CloseOrder = async (req: Request, res: Response) => {
 
         const engineResponse = await dispatchToEngine(orderId, payload, ENGINE_TIMEOUT_MS);
 
-        console.log(`[Order] close response for ${orderId}:`, engineResponse.status);
+        console.log(`[Order] close response for ${orderId}:`, JSON.stringify(engineResponse));
 
         if (engineResponse.status === "closed") {
             return res.status(200).json({
@@ -214,6 +213,28 @@ export const CloseOrder = async (req: Request, res: Response) => {
             return res.status(504).json({ error: "Gateway Timeout", message: "Closing order timed out. Check status." })
         }
         console.error("[Order] closeOrder error:", err)
+        return res.status(500).json({ error: "Internal Server Error" })
+    }
+}
+
+export const getOrderById = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.id
+        if (!userId) {
+            return res.status(401).json({ error: "user not found"})
+        }
+        const { orderId } = req.params;
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+        })
+
+        if (!orderId) {
+            return res.status(404).json({ msg: "Order doesnot exists."})
+        }
+
+        return res.status(200).json({ msg:"order fetched successfully", order: transformOrder(order) })
+    } catch (error) {
+        console.error("Error in getOrderById:", error)
         return res.status(500).json({ error: "Internal Server Error" })
     }
 }

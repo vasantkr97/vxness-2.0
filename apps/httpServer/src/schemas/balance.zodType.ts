@@ -1,15 +1,21 @@
 import { z } from "zod"
+import { SYMBOL_DECIMALS, type Symbol } from "@vxness/types"
 
 export const SymbolSchema = z.enum(["SOL", "BTC", "USDC", "ETH"])
 
-export const GetWalletBalanceBySymbol  = z.object({
+// Re-export for backwards compatibility
+export { SYMBOL_DECIMALS };
+export type { Symbol };
+
+export const GetWalletBalanceBySymbol = z.object({
     symbol: SymbolSchema
 })
 
 export const DepositWalletBalanceBySymbol = z.object({
     symbol: SymbolSchema,
     amount: z.coerce.number().positive(),
-    decimals: z.coerce.number().int().min(0).max(8).default(2)
+    // Make decimals optional - will be auto-determined from symbol
+    decimals: z.coerce.number().int().min(0).max(18).optional()
 })
 
 
