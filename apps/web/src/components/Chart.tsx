@@ -123,10 +123,6 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
             <span className="text-danger">Failed to load chart</span>
           ) : (
             <>
-              {/* <span>O: <span className="text-white">--</span></span>
-                    <span>H: <span className="text-white">--</span></span>
-                    <span>L: <span className="text-white">--</span></span>
-                    <span>C: <span className="text-white">--</span></span> */}
             </>
           )}
         </div>
