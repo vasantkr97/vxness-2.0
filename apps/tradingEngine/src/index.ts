@@ -1,5 +1,5 @@
 import { prisma } from "@vxness/db";
-import { createRedisClient } from "@vxness/redis"
+import createRedisClient from "@vxness/redis";
 import { ENGINE_CONSTANTS, ORDER_PRECISION, REDIS_ENGINE_CONSTANTS, SYMBOL_DECIMALS, type DBTask, type engineOrder, type Side, type Symbol } from "@vxness/types"
 
 
@@ -230,7 +230,7 @@ async function handleCreateOrder(payload: any) {
     const { id, userId, asset, side, qty, leverage, takeProfit, stopLoss } = payload;
 
     console.log(`[DEBUG] Extracted qty: ${qty}, type: ${typeof qty}, Number(qty): ${Number(qty)}`);
-    
+
     const normalizedAsset = asset.toUpperCase();
 
     if (orders.has(id)) return;
@@ -359,8 +359,8 @@ async function loadState() {
         const q = toInt(quantityFromDb);         // Convert to engine precision
 
         orders.set(order.id, {
-            id: order.id, 
-            userId: order.userId, 
+            id: order.id,
+            userId: order.userId,
             asset: order.symbol,  // DB uses 'symbol', not 'asset'
             side: order.side as Side,
             qty: q,
@@ -371,7 +371,7 @@ async function loadState() {
             stopLoss: order.stopLossPrice ? toInt(Number(order.stopLossPrice) / ORDER_PRECISION.PRICE) : undefined,
             createdAt: order.createdAt.getTime()
         });
-        
+
         console.log(`[LoadState] Loaded order ${order.id}: ${order.side} ${order.symbol} @ ${openPriceFromDb}`);
     })
 
@@ -383,7 +383,7 @@ async function loadState() {
         const rawVal = b.balanceRaw ? Number(b.balanceRaw) : 0;
         const actualValue = rawVal / Math.pow(10, decimals);
         const engineScaledValue = toInt(actualValue);
-        
+
         balances.get(b.userId)!.set(b.symbol, engineScaledValue);
     });
     console.log(`State Loaded: ${orders.size} orders.`);

@@ -1,6 +1,6 @@
 import { WebSocket } from "ws";
-import { createRedisClient } from "@vxness/redis"
 import { type PriceEvent, CONFIG } from "@vxness/types";
+import { createRedisClient } from "@vxness/redis";
 
 
 
@@ -13,7 +13,7 @@ async function streamToRedis(payload: unknown): Promise<void> {
         const parsed = payload as any;
 
         const priceData = parsed.data;
-    
+
         if (!priceData) {
             console.warn("No data field in message:", payload);
             return;
@@ -28,9 +28,9 @@ async function streamToRedis(payload: unknown): Promise<void> {
         }
 
         await redisClient.xadd(
-            CONFIG.streamKey, 
-            "*", 
-            "data", 
+            CONFIG.streamKey,
+            "*",
+            "data",
             JSON.stringify(event)
         );
     } catch (error) {
@@ -75,12 +75,12 @@ function connectToExchange() {
         }
     })
 
-    ws.on("error",(err) => {
+    ws.on("error", (err) => {
         console.error("WebSocket observed:", err.message);
     })
 
     ws.on("close", () => {
-        console.warn(`WebSocket Connection closed. Retrying in ${CONFIG.reconnectIntervalMs/1000}s...`)
+        console.warn(`WebSocket Connection closed. Retrying in ${CONFIG.reconnectIntervalMs / 1000}s...`)
 
         setTimeout(connectToExchange, CONFIG.reconnectIntervalMs)
     })

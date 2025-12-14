@@ -48,6 +48,7 @@
       "name": "pricepoller",
       "dependencies": {
         "@types/ws": "^8.18.1",
+        "@vxness/redis": "workspace:*",
         "@vxness/types": "workspace:*",
         "ioredis": "^5.8.2",
         "ws": "^8.18.3",

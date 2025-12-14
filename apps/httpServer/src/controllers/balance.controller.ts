@@ -1,8 +1,8 @@
 import type { Request, Response } from "express"
-import { redis } from "@vxness/redis"
 import { prisma } from "@vxness/db"
 import { SYMBOL_DECIMALS, type Symbol } from "@vxness/types"
 import { GetWalletBalanceBySymbol, DepositWalletBalanceBySymbol, type DepositWalletType } from "../schemas/balance.zodType"
+import { redis } from "@vxness/redis";
 
 // Helper to transform wallet data for JSON serialization
 function transformWallet(wallet: { symbol: string; balanceRaw: bigint; balanceDecimals: number }) {

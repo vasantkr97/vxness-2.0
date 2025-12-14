@@ -1,4 +1,4 @@
-import { createRedisClient } from "@vxness/redis"
+import createRedisClient from "@vxness/redis";
 import { REDIS_ENGINE_CONSTANTS } from "@vxness/types";
 
 
@@ -14,13 +14,13 @@ const activeTimeouts = new Map<string, NodeJS.Timeout>();
 let isListenerActive = false;
 
 //convert the Redis Stream raw fields array into a structured data object.
-const parseStreamData  = (rawFields: string[]): EngineResponse => {
+const parseStreamData = (rawFields: string[]): EngineResponse => {
     const data: EngineResponse = {}
     //iterate two steps at a time (key=i, value=i+1)
-    for (let i=0; i< rawFields.length; i+=2) {
+    for (let i = 0; i < rawFields.length; i += 2) {
         //Ensure both key and value exist before assigning
         const key = rawFields[i];
-        const value = rawFields[i+1];
+        const value = rawFields[i + 1];
         if (key !== undefined && value !== undefined) {
             data[key] = value
         }
@@ -28,25 +28,25 @@ const parseStreamData  = (rawFields: string[]): EngineResponse => {
     return data
 }
 
- // The Heartbeat: Continuously polls Redis for new engine responses.
- // It uses a "Recursive Polling" pattern rather than a simple 'while(true)' loop.
- //This ensures we handle async operations correctly without blocking the Node event loop.
+// The Heartbeat: Continuously polls Redis for new engine responses.
+// It uses a "Recursive Polling" pattern rather than a simple 'while(true)' loop.
+//This ensures we handle async operations correctly without blocking the Node event loop.
 const startListeningLoop = async (): Promise<void> => {
     if (isListenerActive) return;
     isListenerActive = true;
 
     //Start reading from the latest ID ($)
     let lastReadMessageId = "$"
-  console.log(`[Redis:Listener] 🟢 Listening for engine responses on '${REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE}'...`);
-    
+    console.log(`[Redis:Listener] 🟢 Listening for engine responses on '${REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE}'...`);
+
     const pollForNewMessage = async () => {
         try {
             //Xread Block 0 waits indefinetely for a message.
             const streams = await subscriberBlockingRedis.xread(
-                "BLOCK", 
+                "BLOCK",
                 REDIS_ENGINE_CONSTANTS.POLLING_TIMEOUT,
-                "STREAMS", 
-                REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE, 
+                "STREAMS",
+                REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE,
                 lastReadMessageId
             )
 
@@ -71,12 +71,12 @@ const startListeningLoop = async (): Promise<void> => {
 
                 //3. Find who is waiting for this specific ID (resolver that promise)
                 if (correlationId && pendingRequests.has(correlationId)) {
-                    console.log(`[Redis:Listener] ✅ Received reply for ${correlationId}`);          
-                    
+                    console.log(`[Redis:Listener] ✅ Received reply for ${correlationId}`);
+
                     const resolveFunction = pendingRequests.get(correlationId)!;
 
                     //4.ClearUP memory
-                    const timeoutTimer  = activeTimeouts.get(correlationId)
+                    const timeoutTimer = activeTimeouts.get(correlationId)
                     if (timeoutTimer) {
                         clearTimeout(timeoutTimer)
                     }
@@ -101,9 +101,9 @@ const startListeningLoop = async (): Promise<void> => {
             setTimeout(pollForNewMessage, REDIS_ENGINE_CONSTANTS.RETRY_DELAY_MS)
         }
     }
-    
+
     //kick off the loop
-    pollForNewMessage() 
+    pollForNewMessage()
 }
 
 

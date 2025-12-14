@@ -16,6 +16,7 @@
     "@types/ws": "^8.18.1",
     "ioredis": "^5.8.2",
     "ws": "^8.18.3",
-    "@vxness/types": "workspace:*"
+    "@vxness/types": "workspace:*",
+    "@vxness/redis": "workspace:*"
   }
 }
