@@ -23,7 +23,7 @@ let tickers: TickersState = {};
 let isConnected = false;
 let error: string | null = null;
 let listeners: Set<() => void> = new Set();
-let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
 let isConnecting = false;
 
 const WS_URL = 'wss://ws.backpack.exchange';
@@ -147,7 +147,7 @@ const connect = () => {
       notifyListeners();
 
       // Auto-reconnect
-      reconnectTimeout = setTimeout(() => {
+      setTimeout(() => {
         connect();
       }, RECONNECT_DELAY);
     };
@@ -165,7 +165,7 @@ const connect = () => {
     console.error('[WS] Failed to create connection:', e);
     notifyListeners();
 
-    reconnectTimeout = setTimeout(() => {
+    setTimeout(() => {
       connect();
     }, RECONNECT_DELAY);
   }

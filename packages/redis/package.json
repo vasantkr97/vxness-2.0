@@ -13,7 +13,12 @@
   "dependencies": {
     "ioredis": "^5.8.2"
   },
+  "scripts": {
+    "build": "tsc"
+  },
+  "main": "./dist/redisClient.js",
+  "types": "./dist/redisClient.d.ts",
   "exports": {
-    ".": "./redisClient.ts"
+    ".": "./dist/redisClient.js"
   }
 }
