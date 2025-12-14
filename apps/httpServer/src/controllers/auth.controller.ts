@@ -125,7 +125,7 @@ export async function signin(req: Request, res: Response): Promise<Response | vo
     }
 }
 
-export  function signout(req: Request, res: Response) {
+export function signout(req: Request, res: Response) {
     try {
         res.clearCookie("token")
         return res.status(200).json({ msg: "signed out successfully"})

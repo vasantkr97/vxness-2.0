@@ -1,44 +1,8 @@
 import type { Request, Response } from "express"
-import type { CandleResponse, UpstreamCandle } from "@vxness/types"
+import { DEFAULT_TIME_RANGE_SECONDS, SYMBOL_MAP, TIME_WINDOW_MAP, type CandleResponse, type UpstreamCandle } from "@vxness/types"
 import { GetCandlesQuerySchema, type GetCandlesQueryType } from "../schemas/candles.zodType"
 
 
-
-type SymbolType = Record<string, string>
-
-const SYMBOL_MAP: SymbolType = {
-    BTCUSDT: "BTC_USDC",
-    BTCUSDC: "BTC_USDC",
-    ETHUSDT: "ETH_USDC",
-    ETHUSDC: "ETH_USDC",
-    SOLUSDT: "SOL_USDC",
-    SOLUSDC: "SOL_USDC",
-}
-
-//timeFrame(time Window) -> number of seconds
-type TimeWindowType = Record<string, number>
-
-const TIME_WINDOW_MAP: TimeWindowType = {
-    "1m": 24 * 60 * 60,
-    "3m": 2 * 24 * 60 * 60,
-    "5m": 3 * 24 * 60 * 60,
-    "15m": 7 * 24 * 60 * 60,
-    "30m": 14 * 24 * 60 * 60,
-    "1h": 30 * 24 * 60 * 60,
-    "2h": 45 * 24 * 60 * 60,
-    "4h": 60 * 24 * 60 * 60,
-    "6h": 90 * 24 * 60 * 60,
-    "8h": 120 * 24 * 60 * 60,
-    "12h": 180 * 24 * 60 * 60,
-    "1d": 365 * 24 * 60 * 60,
-    "3d": 3 * 365 * 24 * 60 * 60,
-    "1w": 2 * 365 * 24 * 60 * 60,
-    "1M": 5 * 365 * 24 * 60 * 60,
-}
-
-//Default fallback time range: 7 days
-
-const DEFAULT_TIME_RANGE_SECONDS = 7*24*60*60
 
 export async function getCandles(req: Request, res: Response): Promise<void> {
     const validatedResult = GetCandlesQuerySchema.safeParse(req.query)

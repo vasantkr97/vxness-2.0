@@ -1,46 +1,12 @@
 import { prisma } from "@vxness/db";
 import { createRedisClient } from "@vxness/redis"
-import { ORDER_PRECISION, SYMBOL_DECIMALS, type Symbol } from "@vxness/types"
+import { ENGINE_CONSTANTS, ORDER_PRECISION, REDIS_ENGINE_CONSTANTS, SYMBOL_DECIMALS, type DBTask, type engineOrder, type Side, type Symbol } from "@vxness/types"
 
 
-const CONFIG = {
-    STREAM_KEY: "trading-engine",
-    CALLBACK_QUEUE: "callback-queue",
-    PRECISION_SCALE: 100_000_000,
-    DB_BATCH_SIZE: 100,
-    DB_FLUSH_INTERVAL_MS: 1000,
-    MARGIN_THRESHOLD: 0.05,
-    MAX_QUEUE_SIZE: 10000,
-}
-
-// Polyfill for JSON.stringify of BigInt
-// @ts-ignore
-BigInt.prototype.toJSON = function() { return this.toString() }
-
-type Side = "long" | "short"
-
-interface Order {
-    id: string,
-    userId: string;
-    asset: string;
-    side: Side;
-    qty: number;
-    leverage: number;
-    openingPrice: number;
-    initialMargin: number;
-    takeProfit?: number;
-    stopLoss?: number;
-    createdAt: number;
-}
-
-interface DBTask {
-    type: "balance-update" | "order_create" | "order_close";
-    data: any;
-}
 
 const redisClient = createRedisClient()
 
-const orders = new Map<string, Order>();
+const orders = new Map<string, engineOrder>();
 const balances = new Map<string, Map<string, number>>();
 const prices = new Map<string, { bid: number; ask: number }>();
 
@@ -51,13 +17,13 @@ let lastStreamId = "$";
 
 
 
-const toInt = (val: number) => Math.round(val * CONFIG.PRECISION_SCALE);
-const fromInt = (val: number) => val / CONFIG.PRECISION_SCALE;
+const toInt = (val: number) => Math.round(val * ENGINE_CONSTANTS.PRECISION_SCALE);
+const fromInt = (val: number) => val / ENGINE_CONSTANTS.PRECISION_SCALE;
 
 const multiplyInt = (a: number, b: number) => {
     const bigA = BigInt(Math.round(a))
     const bigB = BigInt(Math.round(b))
-    const scale = BigInt(CONFIG.PRECISION_SCALE);
+    const scale = BigInt(ENGINE_CONSTANTS.PRECISION_SCALE);
 
     return Number((bigA * bigB) / scale);
 };
@@ -73,7 +39,7 @@ const calcPnl = (side: Side, entry: number, current: number, qty: number): numbe
 //Database Batching System
 //Queue a database operation to be executed in the next batch
 function queueDbAction(action: DBTask) {
-    if (dbQueue.length >= CONFIG.MAX_QUEUE_SIZE) {
+    if (dbQueue.length >= ENGINE_CONSTANTS.MAX_QUEUE_SIZE) {
         console.error(`[DB] Queue overflow! Size: ${dbQueue.length}. Dropping oldest tasks.`)
         dbQueue.shift();
     }
@@ -87,7 +53,7 @@ async function processDbQueue() {
     isFlushingDB = true;
 
     //Take a snapshot of the current queue
-    const batch = dbQueue.splice(0, CONFIG.DB_BATCH_SIZE);
+    const batch = dbQueue.splice(0, ENGINE_CONSTANTS.DB_BATCH_SIZE);
 
     try {
         for (const task of batch) {
@@ -138,7 +104,7 @@ async function processDbQueue() {
     }
 }
 
-setInterval(processDbQueue, CONFIG.DB_FLUSH_INTERVAL_MS);
+setInterval(processDbQueue, ENGINE_CONSTANTS.DB_FLUSH_INTERVAL_MS);
 
 
 //Core Trading Logic
@@ -160,7 +126,7 @@ function setBalance(userId: string, symbol: string, amount: number) {
 async function sendCallback(orderId: string, status: string, payload: any = {}) {
     try {
         await redisClient.xadd(
-            CONFIG.CALLBACK_QUEUE,
+            REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE,
             "*",
             "id", orderId,
             "status", status,
@@ -171,7 +137,7 @@ async function sendCallback(orderId: string, status: string, payload: any = {}) 
     }
 }
 
-function executeClose(order: Order, price: number, reason: string, pnl: number) {
+function executeClose(order: engineOrder, price: number, reason: string, pnl: number) {
     let credit = order.initialMargin + pnl;
     if (credit < 0) credit = 0;
 
@@ -209,10 +175,10 @@ function executeClose(order: Order, price: number, reason: string, pnl: number) 
 }
 
 
-function checkOrderRisk(order: Order, currentPrice: number) {
+function checkOrderRisk(order: engineOrder, currentPrice: number) {
     const pnl = calcPnl(order.side, order.openingPrice, currentPrice, order.qty);
     const remainingMargin = order.initialMargin + pnl;
-    const maintMargin = multiplyInt(order.initialMargin, toInt(CONFIG.MARGIN_THRESHOLD))
+    const maintMargin = multiplyInt(order.initialMargin, toInt(ENGINE_CONSTANTS.MARGIN_THRESHOLD))
 
     let reason: string | null = null;
 
@@ -289,7 +255,7 @@ async function handleCreateOrder(payload: any) {
 
     setBalance(userId, "USDC", userBal - marginRequired);
 
-    const order: Order = {
+    const order: engineOrder = {
         id, userId, asset: normalizedAsset, side,
         qty: qtyInt,
         leverage: lev,
@@ -412,15 +378,10 @@ async function loadState() {
     const dbBalances = await prisma.wallet.findMany();
     dbBalances.forEach((b: any) => {
         if (!balances.has(b.userId)) balances.set(b.userId, new Map());
-        
-        // Get decimals from database (this is the authoritative source)
+
         const decimals = b.balanceDecimals ?? SYMBOL_DECIMALS[b.symbol as Symbol] ?? 8;
         const rawVal = b.balanceRaw ? Number(b.balanceRaw) : 0;
-        
-        // Convert from database format to actual decimal value
         const actualValue = rawVal / Math.pow(10, decimals);
-        
-        // Convert to engine's internal precision (100_000_000)
         const engineScaledValue = toInt(actualValue);
         
         balances.get(b.userId)!.set(b.symbol, engineScaledValue);
@@ -434,7 +395,7 @@ async function engine() {
 
     while (true) {
         try {
-            const response = await redisClient.xread("BLOCK", 0, "STREAMS", CONFIG.STREAM_KEY, lastStreamId);
+            const response = await redisClient.xread("BLOCK", 0, "STREAMS", REDIS_ENGINE_CONSTANTS.REQUEST_STREAM_KEY, lastStreamId);
             if (!response || !response[0]) continue;
 
             const [_, messages] = response[0];

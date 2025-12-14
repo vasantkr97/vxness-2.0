@@ -1,21 +1,10 @@
 import { WebSocket } from "ws";
 import { createRedisClient } from "@vxness/redis"
+import { type PriceEvent, CONFIG } from "@vxness/types";
 
-const CONFIG = {
-    wsUrl: "wss://ws.backpack.exchange",
-    streamKey: "trading-engine",
-    reconnectIntervalMs: 5000, 
-    markets: ["BTC_USDC", "SOL_USDC", "ETH_USDC"]
-} as const;
+
 
 const redisClient = createRedisClient();
-
-
-interface PriceEvent {
-    kind: "price-update";
-    payload: unknown;
-    receivedAt: number;
-}
 
 
 async function streamToRedis(payload: unknown): Promise<void> {

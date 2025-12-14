@@ -1,10 +1,11 @@
+import type { Side } from "./engine.type";
 import type { UserBalance } from "./user.type";
 
 export interface Order {
     id: string;
     userId: string;
     asset: string;
-    side: "buy" | "sell" | "long" | "short";
+    side: Side;
     qty: number;
     leverage?: number;
     openingPrice: number;

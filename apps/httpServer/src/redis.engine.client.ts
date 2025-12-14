@@ -1,9 +1,5 @@
 import { createRedisClient } from "@vxness/redis"
-
-const CALLBACK_QUEUE = "callback-queue";
-const REQUEST_STREAM_KEY = "trading-engine";
-const RETRY_DELAY_MS = 5000
-const POLLING_TIMEOUT = 0 
+import { REDIS_ENGINE_CONSTANTS } from "@vxness/types";
 
 
 
@@ -41,16 +37,16 @@ const startListeningLoop = async (): Promise<void> => {
 
     //Start reading from the latest ID ($)
     let lastReadMessageId = "$"
-  console.log(`[Redis:Listener] 🟢 Listening for engine responses on '${CALLBACK_QUEUE}'...`);
+  console.log(`[Redis:Listener] 🟢 Listening for engine responses on '${REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE}'...`);
     
     const pollForNewMessage = async () => {
         try {
             //Xread Block 0 waits indefinetely for a message.
             const streams = await subscriberBlockingRedis.xread(
                 "BLOCK", 
-                POLLING_TIMEOUT,
+                REDIS_ENGINE_CONSTANTS.POLLING_TIMEOUT,
                 "STREAMS", 
-                CALLBACK_QUEUE, 
+                REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE, 
                 lastReadMessageId
             )
 
@@ -88,7 +84,7 @@ const startListeningLoop = async (): Promise<void> => {
                     activeTimeouts.delete(correlationId)
 
                     //5.Acknowledege and clean uo the message from the stream for memory
-                    subscriberBlockingRedis.xdel(CALLBACK_QUEUE, streamMsgId).catch(err => {
+                    subscriberBlockingRedis.xdel(REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE, streamMsgId).catch(err => {
                         console.error(`[Redis:Listener] Failed to XDEL message ${streamMsgId}`, err)
                     })
 
@@ -102,7 +98,7 @@ const startListeningLoop = async (): Promise<void> => {
             console.error("[Redis:Listener] 🔴 Polling error. Retrying in 2s...", error);
             //Wait a bit before retrying to avoid spamming logs if Redis is down
             //await new Promise(r => setTimeout(r, RETRY_DELAY_MS))
-            setTimeout(pollForNewMessage, RETRY_DELAY_MS)
+            setTimeout(pollForNewMessage, REDIS_ENGINE_CONSTANTS.RETRY_DELAY_MS)
         }
     }
     
@@ -146,7 +142,7 @@ export const dispatchToEngine = async (
         console.log(`[Redis:Publish] Sending request ${requestId}`)
 
         publisherNonBlockingRedis.xadd(
-            REQUEST_STREAM_KEY,
+            REDIS_ENGINE_CONSTANTS.REQUEST_STREAM_KEY,
             "*", //Let Redis auto-generated ID
             "id",
             requestId,

@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from "express"
-import jwt, { type JwtPayload } from "jsonwebtoken"
+import jwt from "jsonwebtoken"
 import { prisma } from "@vxness/db"
-import dotenv from "dotenv"
 
 const JWT_SECRET = process.env.JWT_SECRET || "vasanth"
 

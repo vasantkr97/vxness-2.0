@@ -12,3 +12,12 @@ export const SYMBOL_DECIMALS = {
 } as const;
 
 export type Symbol = keyof typeof SYMBOL_DECIMALS;
+
+
+export const REDIS_ENGINE_CONSTANTS = {
+    CALLBACK_QUEUE: "callback-queue",
+    REQUEST_STREAM_KEY: "trading-engine",
+    RETRY_DELAY_MS: 5000,
+    POLLING_TIMEOUT: 0
+} as const
+
