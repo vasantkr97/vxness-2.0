@@ -70,21 +70,12 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({ currentAsset
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex px-4 py-2 gap-4 text-xs font-medium text-muted border-b border-dark-600/50">
-          <span className="text-white cursor-pointer">Favorites</span>
-          <span className="hover:text-white cursor-pointer transition-colors">Crypto</span>
-          <span className="hover:text-white cursor-pointer transition-colors">Forex</span>
-      </div>
-
-      {/* Column Headers */}
       <div className="grid grid-cols-[34%_33%_33%] px-4 py-2 text-xs text-muted uppercase font-medium">
           <div>Symbol</div>
           <div className="text-right">Bid</div>
           <div className="text-right">Ask</div>
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto">
           {displayTickers.length === 0 ? (
              <div className="p-4 text-center text-muted text-sm">
