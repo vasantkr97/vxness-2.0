@@ -1,135 +1,136 @@
-# Turborepo starter
+# Vxness Trading Platform
 
-This Turborepo starter is maintained by the Turborepo core team.
+**Vxness** is a high-performance, full-stack cryptocurrency trading platform designed for scalability and real-time order matching. It features a modern microservices-based architecture managed within a monorepo, utilizing advanced technologies like **Bun**, **Turbo**, **Redis**, and **Docker** to ensure low latency and high reliability.
 
-## Using this example
+## 🚀 Features
 
-Run the following command:
+- **Real-time Trading Engine**: High-performance, in-memory order matching engine.
+- **Live Market Data**: WebSocket-based real-time price updates and order book streaming.
+- **Interactive UI**: A modern, responsive web interface built with React and Vite, featuring advanced charting with `lightweight-charts`.
+- **Secure Authentication**: Robust JWT-based authentication system.
+- **Scalable Architecture**: Microservices design with Redis for messaging and Postgres for persistence.
+- **Monorepo Management**: Efficient development workflow powered by Turborepo and Bun.
 
-```sh
-npx create-turbo@latest
+## 🏗 Architecture
+
+The platform consists of several interconnected services:
+
+```mermaid
+graph TD
+    Client[Web Client] <-->|HTTP/WS| HTTPServer[HTTP Server]
+    Client <-->|WS| Proxy[Reverse Proxy / LB]
+    Proxy <--> HTTPServer
+    HTTPServer <-->|Pub/Sub| Redis[(Redis)]
+    HTTPServer <-->|SQL| DB[(PostgreSQL)]
+    
+    PricePoller[Price Poller] -->|Push Prices| Redis
+    TradingEngine[Trading Engine] <-->|Order Events| Redis
+    TradingEngine <-->|Persist| DB
 ```
 
-## What's inside?
+### Components
 
-This Turborepo includes the following packages/apps:
+#### Apps (`/apps`)
+- **`web`**: The frontend application. Built with **React**, **Vite**, and **TypeScript**. Features real-time charts and order management.
+- **`httpServer`**: The core API gateway. Built with **Node.js/Express**. Handles user authentication, API requests, and WebSocket connections.
+- **`tradingEngine`**: The heart of the platform. A dedicated service for matching buy/sell orders and managing order books in real-time.
+- **`pricePoller`**: A specialized service that polls or streams external market prices and publishes them to the system.
 
-### Apps and Packages
+#### Packages (`/packages`)
+- **`@vxness/db`**: Shared database schema and client (Prisma).
+- **`@vxness/redis`**: Shared Redis configuration and client factory.
+- **`@vxness/ui`**: Shared UI component library.
+- **`@vxness/types`**: Shared TypeScript definitions and interfaces (DTOs, Events).
+- **`@vxness/eslint-config`** & **`@vxness/typescript-config`**: Shared configuration for code quality and consistency.
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+## 🛠 Tech Stack
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+- **Runtime**: [Bun](https://bun.sh) (Package Manager & Runtime)
+- **Monorepo**: [Turborepo](https://turbo.build)
+- **Frontend**: React, Vite, TailwindCSS (assumed), Lightweight Charts
+- **Backend**: Node.js, Express, WebSocket (`ws`)
+- **Database**: PostgreSQL with [Prisma ORM](https://www.prisma.io)
+- **Messaging/Caching**: [Redis](https://redis.io)
+- **DevOps**: Docker, Docker Compose
 
-### Utilities
+## ⚡ Getting Started
 
-This Turborepo has some additional tools already setup for you:
+### Prerequisites
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+Ensure you have the following installed:
+- **Bun** (v1.2.23 or later)
+- **Docker** & **Docker Compose**
+- **Node.js** (v18 or later)
 
-### Build
+### Installation
 
-To build all apps and packages, run the following command:
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd vxness
+    ```
 
-```
-cd my-turborepo
+2.  **Install dependencies:**
+    ```bash
+    bun install
+    ```
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
+3.  **Environment Setup:**
+    Ensure you have a `.env` file in the root or relevant app directories. A typical `.env` might look like:
+    ```env
+    DATABASE_URL="postgresql://postgres:password123@localhost:5432/vxness?schema=public"
+    REDIS_URL="redis://localhost:6379"
+    ```
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
-```
+### Running Locally (Development)
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+To start the entire stack in development mode (hot-reloading):
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+1.  **Start Infrastructure (DB & Redis):**
+    ```bash
+    docker-compose up -d postgres redis
+    ```
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+2.  **Start Applications:**
+    ```bash
+    bun run dev
+    ```
+    This command uses Turbo to run the `dev` script in all applications simultaneously.
 
-### Develop
+### Running in Production (Docker)
 
-To develop all apps and packages, run the following command:
+To build and run the entire platform using Docker Compose:
 
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+```bash
+docker-compose -f docker-compose.prod.yml up --build -d
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+This will spin up:
+- Postgres Database
+- Redis
+- HTTP Server (Port 3001)
+- Trading Engine
+- Price Poller
+- Web Client (Port 80/443)
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+## 📜 Scripts
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
+Run these commands from the root directory:
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
+- `bun run build`: Build all applications and packages.
+- `bun run dev`: Start all applications in development mode.
+- `bun run lint`: Lint all codebases.
+- `bun run check-types`: Run Type checking across the monorepo.
+- `bun run format`: Format code using Prettier.
 
-## Useful Links
+## 🤝 Contributing
 
-Learn more about the power of Turborepo:
+1.  Fork the repository.
+2.  Create a feature branch (`git checkout -b feature/amazing-feature`).
+3.  Commit your changes (`git commit -m 'Add some amazing feature'`).
+4.  Push to the branch (`git push origin feature/amazing-feature`).
+5.  Open a Pull Request.
 
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+---
+
+Built with ❤️ by the Vxness Team.
