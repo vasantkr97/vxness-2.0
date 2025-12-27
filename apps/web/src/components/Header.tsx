@@ -7,7 +7,6 @@ import { Button } from './ui/Button';
 import { useBalances } from '../hooks/useBalances';
 import { useTrade } from '../context/TradeContext';
 
-// Component for displaying price with flash animation
 const FlashPrice: React.FC<{ value: number; className?: string; updatedAt?: number }> = ({ 
   value, 
   className = '',
@@ -16,9 +15,7 @@ const FlashPrice: React.FC<{ value: number; className?: string; updatedAt?: numb
   const [flash, setFlash] = useState(false);
   const prevValueRef = useRef(value);
   
-  // Flash on value change or fresh update
   useEffect(() => {
-    // If we have a valid update and (value changed OR it's a new tick)
     if (value > 0 && (prevValueRef.current !== value || updatedAt > 0)) {
       setFlash(true);
       const timer = setTimeout(() => setFlash(false), 300);
@@ -41,15 +38,10 @@ export const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   
-  // Get current asset from global state
   const { currentAsset } = useTrade();
 
-  // Data hooks
   const { data: balances } = useBalances();
-  // Fetch price for the currently selected asset
   const { ask, updatedAt } = useTicker(currentAsset);
-
-  // Calculate total estimated balance
   const totalBalance = React.useMemo(() => {
     if (!balances) return 0;
     let total = 0;

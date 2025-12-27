@@ -35,7 +35,7 @@ export const Wallet: React.FC = () => {
       <h1 className="text-2xl font-bold mb-6">Wallet</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Balance List */}
+        
         <div className="bg-dark-800 rounded-xl border border-dark-600/50 p-6">
           <h2 className="text-lg font-semibold mb-4">Assets</h2>
           <div className="space-y-4">
@@ -57,7 +57,6 @@ export const Wallet: React.FC = () => {
           </div>
         </div>
 
-        {/* Deposit Form */}
         <div className="bg-dark-800 rounded-xl border border-dark-600/50 p-6 h-fit">
           <h2 className="text-lg font-semibold mb-4">Deposit Funds</h2>
           <form onSubmit={handleDeposit} className="space-y-4">

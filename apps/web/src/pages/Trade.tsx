@@ -9,7 +9,6 @@ import { useTrade } from '../context/TradeContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
-// Inline Auth Component for the Sidebar
 const InlineAuthForm = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -97,12 +96,9 @@ export const Trade: React.FC = () => {
   const { user } = useAuth();
   const { currentAsset: asset, setAsset } = useTrade();
 
-  // Layout State
   const [leftWidth, setLeftWidth] = useState(280);
   const [rightWidth, setRightWidth] = useState(320);
   const [topHeightPercent, setTopHeightPercent] = useState(60);
-
-  // Resize State
   const [resizing, setResizing] = useState<'left' | 'right' | 'vertical' | null>(null);
   const mainRef = useRef<HTMLDivElement>(null);
 
@@ -112,7 +108,6 @@ export const Trade: React.FC = () => {
 
   const orderFormAsset = (['BTC', 'ETH', 'SOL'].includes(asset) ? asset : 'BTC') as 'BTC' | 'ETH' | 'SOL';
 
-  // Resize Handlers
   const startResize = (direction: 'left' | 'right' | 'vertical') => (e: React.MouseEvent) => {
     e.preventDefault();
     setResizing(direction);
@@ -157,7 +152,6 @@ export const Trade: React.FC = () => {
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-dark-900">
       
-      {/* Left Sidebar: Instruments */}
       <div style={{ width: leftWidth }} className="flex-shrink-0 hidden md:block relative">
         <InstrumentsPanel 
             currentAsset={asset} 
@@ -170,24 +164,19 @@ export const Trade: React.FC = () => {
         />
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-dark-900 relative" ref={mainRef}>
         
-        {/* Top Section */}
         <div style={{ height: `${topHeightPercent}%` }} className="flex w-full relative">
            
-           {/* Chart Area */}
            <div className="flex-1 min-w-0 bg-dark-800 relative">
               <Chart asset={asset} />
            </div>
 
-           {/* Right Resize Handle (Order Form) */}
            <div 
               className="w-1 h-full cursor-col-resize hover:bg-accent/50 bg-dark-600/30 transition-colors z-20 active:bg-accent flex-shrink-0"
               onMouseDown={startResize('right')}
            />
            
-           {/* Order Form or Inline Auth (Right Side) */}
            <div style={{ width: rightWidth }} className="flex-shrink-0 bg-dark-800 border-l border-dark-600/50 overflow-y-auto no-scrollbar">
               <div className="p-4 h-full">
                  {user ? (
@@ -199,13 +188,11 @@ export const Trade: React.FC = () => {
            </div>
         </div>
 
-        {/* Vertical Resize Handle */}
         <div 
             className="h-1 w-full cursor-row-resize hover:bg-accent/50 bg-dark-600/50 transition-colors z-20 active:bg-accent flex-shrink-0"
             onMouseDown={startResize('vertical')}
         />
 
-        {/* Bottom Section: Positions & History */}
         <div className="flex-1 min-h-0 bg-dark-900 relative">
            {user ? (
              <PositionsTable />

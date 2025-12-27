@@ -6,16 +6,14 @@ import type { Order } from '../types';
 
 interface PositionsTableProps {}
 
-// Component for displaying PNL with flash animation
-// Now integrated into PositionRow for better control, but kept as helper for history/static views if needed
 const PnlValue: React.FC<{ value: number; flashState: 'up' | 'down' | null }> = ({ value, flashState }) => {
   const isPositive = value >= 0;
   let bgClass = '';
-  if (flashState === 'up') bgClass = 'bg-green-500/20 text-green-100'; // Brighter flash for up
-  if (flashState === 'down') bgClass = 'bg-red-500/20 text-red-100';   // Brighter flash for down
+  if (flashState === 'up') bgClass = 'bg-green-500/20 text-green-100';
+  if (flashState === 'down') bgClass = 'bg-red-500/20 text-red-100';  
 
   return (
-    <span className={`px-2 py-1 rounded transition-colors duration-300 ${bgClass} ${flashState ? '' : (isPositive ? 'text-success' : 'text-danger')}`}>
+    <span className={`font-mono py-0.5 rounded transition-colors duration-300 ${bgClass} ${flashState ? '' : (isPositive ? 'text-success' : 'text-danger')}`}>
       ${value.toFixed(2)}
     </span>
   );
@@ -27,22 +25,16 @@ interface PositionRowProps {
   isClosing: boolean;
 }
 
-// Memoized Row Component for Active Positions
+
 const PositionRow = memo(({ order, onClose, isClosing }: PositionRowProps) => {
-  const { price: currentPrice, bid } = useTicker(order.symbol);
+  const { ask: currentPrice, bid } = useTicker(order.symbol);
   const [flashState, setFlashState] = useState<'up' | 'down' | null>(null);
   const prevPnlRef = useRef<number | null>(null);
 
-  // Calculate Live PNL
+  
   const calculatePnl = () => {
     if (!currentPrice || !order.price || !order.quantity) return order.pnl ?? 0;
     
-    // For Long: Exit at Bid
-    // For Short: Exit at Ask (using currentPrice which is often mapped to Ask or Last)
-    // To be precise: Long exits at Bid, Short exits at Ask. 
-    // The useTicker hook returns 'price' (ask) and 'bid'.
-    
-    // Default to 'price' (Ask) if Bid not available, but for correctness:
     const exitPrice = order.orderType === 'long' ? bid : currentPrice;
     
     const priceDiff = order.orderType === 'long' 
@@ -54,18 +46,17 @@ const PositionRow = memo(({ order, onClose, isClosing }: PositionRowProps) => {
 
   const livePnl = calculatePnl();
 
-  // Handle Flashing
   useEffect(() => {
     if (prevPnlRef.current !== null) {
       const diff = livePnl - prevPnlRef.current;
-      if (Math.abs(diff) > 0.00001) { // Sensitivity logic
+      if (Math.abs(diff) > 0.00001) {   
         if (diff > 0) {
           setFlashState('up');
         } else if (diff < 0) {
           setFlashState('down');
         }
         
-        const timer = setTimeout(() => setFlashState(null), 300); // 300ms flash
+        const timer = setTimeout(() => setFlashState(null), 300); 
         return () => clearTimeout(timer);
       }
     }
@@ -85,7 +76,7 @@ const PositionRow = memo(({ order, onClose, isClosing }: PositionRowProps) => {
       <td className="text-right py-3 px-4 text-white font-mono">
         {order.quantity?.toFixed(5) ?? '-'}
       </td>
-      <td className="text-right py-3 px-4 font-medium font-mono">
+      <td className="text-right py-3 px-4 font-medium">
         <PnlValue value={livePnl} flashState={flashState} />
       </td>
       <td className="text-right py-3 px-4">
@@ -210,8 +201,8 @@ export const PositionsTable: React.FC<PositionsTableProps> = () => {
                       <td className="text-right py-3 px-4 text-white font-mono">
                         {order.quantity?.toFixed(5) ?? '-'}
                       </td>
-                      <td className="text-right py-3 px-4 font-medium font-mono">
-                         <span className={order.pnl && order.pnl >= 0 ? 'text-success' : 'text-danger'}>
+                      <td className="text-right py-3 px-4 font-medium">
+                         <span className={`font-mono py-0.5 rounded ${order.pnl && order.pnl >= 0 ? 'text-success' : 'text-danger'}`}>
                            ${order.pnl?.toFixed(2) ?? '0.00'}
                          </span>
                       </td>

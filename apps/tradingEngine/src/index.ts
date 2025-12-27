@@ -29,7 +29,6 @@ const multiplyInt = (a: number, b: number) => {
 };
 
 
-//Calculate Pnl in Integers
 const calcPnl = (side: Side, entry: number, current: number, qty: number): number => {
     const priceDiff = side === "long" ? current - entry : entry - current;
     return multiplyInt(priceDiff, qty);
@@ -37,7 +36,6 @@ const calcPnl = (side: Side, entry: number, current: number, qty: number): numbe
 
 
 //Database Batching System
-//Queue a database operation to be executed in the next batch
 function queueDbAction(action: DBTask) {
     if (dbQueue.length >= ENGINE_CONSTANTS.MAX_QUEUE_SIZE) {
         console.error(`[DB] Queue overflow! Size: ${dbQueue.length}. Dropping oldest tasks.`)
@@ -52,7 +50,6 @@ async function processDbQueue() {
     if (isFlushingDB || dbQueue.length === 0) return;
     isFlushingDB = true;
 
-    //Take a snapshot of the current queue
     const batch = dbQueue.splice(0, ENGINE_CONSTANTS.DB_BATCH_SIZE);
 
     try {
@@ -61,13 +58,10 @@ async function processDbQueue() {
                 if (task.type === "balance-update") {
                     const { userId, symbol, balance } = task.data;
 
-                    // Get the correct decimals for this symbol
                     const decimals = SYMBOL_DECIMALS[symbol as Symbol] ?? 8;
 
-                    // Convert from engine precision (100_000_000) to actual value
                     const actualValue = fromInt(balance);
 
-                    // Convert to database format using symbol-specific decimals
                     const balanceRaw = BigInt(Math.round(actualValue * Math.pow(10, decimals)));
 
                     await prisma.wallet.upsert({
@@ -107,7 +101,7 @@ async function processDbQueue() {
 setInterval(processDbQueue, ENGINE_CONSTANTS.DB_FLUSH_INTERVAL_MS);
 
 
-//Core Trading Logic
+
 function getBalance(userId: string, symbol: string) {
     if (!balances.has(userId)) balances.set(userId, new Map());
     return balances.get(userId)!.get(symbol) || 0;
@@ -146,7 +140,6 @@ function executeClose(order: engineOrder, price: number, reason: string, pnl: nu
 
     orders.delete(order.id);
 
-    // Map reason to Prisma CloseReason enum values (lowercase with underscores)
     const closeReasonMap: Record<string, string> = {
         'TAKE_PROFIT': 'take_profit',
         'STOP_LOSS': 'stop_loss',
@@ -162,8 +155,8 @@ function executeClose(order: engineOrder, price: number, reason: string, pnl: nu
             id: order.id,
             update: {
                 status: 'closed',
-                closePrice: Math.round(fromInt(price) * ORDER_PRECISION.PRICE),  // Schema uses closePrice, not closingPrice
-                Pnl: Math.round(fromInt(pnl) * ORDER_PRECISION.PRICE),           // Schema uses Pnl (capital P), stored as Int
+                closePrice: Math.round(fromInt(price) * ORDER_PRECISION.PRICE), 
+                Pnl: Math.round(fromInt(pnl) * ORDER_PRECISION.PRICE),           
                 closedAt: new Date(),
                 closeReason: dbCloseReason
             }
@@ -200,10 +193,6 @@ function checkOrderRisk(order: engineOrder, currentPrice: number) {
 }
 
 async function handlePriceUpdate(payload: any) {
-    // Skip if payload doesn't have required fields (e.g., subscription confirmations)
-    // const data = payload.data || payload;
-
-    //console.log("price-Update payload", payload)
 
     if (!payload || !payload.s || !payload.b || !payload.a) {
         return;
@@ -215,8 +204,6 @@ async function handlePriceUpdate(payload: any) {
     const ask = toInt(Number(a));
 
     prices.set(symbol, { bid, ask })
-    // console.log("prices of trades:", prices)
-
     for (const order of orders.values()) {
         if (order.asset !== symbol) continue;
         const marketPrice = order.side === "long" ? bid : ask;
@@ -225,11 +212,9 @@ async function handlePriceUpdate(payload: any) {
 }
 
 async function handleCreateOrder(payload: any) {
-    console.log(`[DEBUG] handleCreateOrder received payload:`, JSON.stringify(payload, null, 2));
 
     const { id, userId, asset, side, qty, leverage, takeProfit, stopLoss } = payload;
 
-    console.log(`[DEBUG] Extracted qty: ${qty}, type: ${typeof qty}, Number(qty): ${Number(qty)}`);
 
     const normalizedAsset = asset.toUpperCase();
 
@@ -340,7 +325,7 @@ async function handleBalanceUpdate(payload: any) {
     }
 }
 
-//ENGINE
+
 async function loadState() {
     console.log("Loading State...")
 
@@ -350,18 +335,16 @@ async function loadState() {
 
 
     dbOrders.forEach((order: any) => {
-        // Database uses openPrice (Int) and quantity (Int) with ORDER_PRECISION
-        // Need to convert from DB format to engine format
-        const openPriceFromDb = Number(order.openPrice) / ORDER_PRECISION.PRICE;  // Convert from Int to actual price
-        const quantityFromDb = Number(order.quantity) / ORDER_PRECISION.QUANTITY;  // Convert from Int to actual quantity
+        const openPriceFromDb = Number(order.openPrice) / ORDER_PRECISION.PRICE;  
+        const quantityFromDb = Number(order.quantity) / ORDER_PRECISION.QUANTITY;  
 
-        const opPrice = toInt(openPriceFromDb);  // Convert to engine precision
-        const q = toInt(quantityFromDb);         // Convert to engine precision
+        const opPrice = toInt(openPriceFromDb); 
+        const q = toInt(quantityFromDb);         
 
         orders.set(order.id, {
             id: order.id,
             userId: order.userId,
-            asset: order.symbol,  // DB uses 'symbol', not 'asset'
+            asset: order.symbol,  
             side: order.side as Side,
             qty: q,
             leverage: order.leverage,
@@ -406,7 +389,6 @@ async function engine() {
                 try {
                     let rawData = ""
                     for (let i = 0; i < fields.length; i += 2) {
-                        // httpServer uses "payload", pricePoller uses "data"
                         if (fields[i] === "data" || fields[i] === "payload") {
                             rawData = fields[i + 1] ?? ""
                         }
@@ -414,13 +396,8 @@ async function engine() {
                     if (!rawData) continue
 
                     const msg = JSON.parse(rawData)
-                    // Handle different message formats:
-                    // - httpServer: { kind: "create-order", payload: {...} }
-                    // - pricePoller: { kind: "price-update", payload: {...} }
                     const kind = msg.kind || msg.type;
                     const payload = msg.payload || msg.data;
-
-                    // console.log(`[Engine] Received kind="${kind}"`)
 
                     switch (kind) {
                         case "price-update": await handlePriceUpdate(payload); break;

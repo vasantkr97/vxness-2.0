@@ -6,7 +6,7 @@ interface TickerData {
   ask: number;
   lastPrice: number;
   change24h: number;
-  updatedAt: number; // Timestamp for detecting changes
+  updatedAt: number;
 }
 
 type TickersState = Record<string, TickerData>;
@@ -17,7 +17,6 @@ interface WsState {
   error: string | null;
 }
 
-// Singleton state for WebSocket manager
 let ws: WebSocket | null = null;
 let tickers: TickersState = {};
 let isConnected = false;
@@ -30,16 +29,13 @@ const WS_URL = 'wss://ws.backpack.exchange';
 const SYMBOLS = ['BTC_USDC', 'ETH_USDC', 'SOL_USDC'];
 const RECONNECT_DELAY = 3000;
 
-// Cached snapshot for useSyncExternalStore - must be declared before notifyListeners
 let cachedSnapshot: WsState = {
   tickers: {},
   isConnected: false,
   error: null,
 };
 
-// Notify all listeners of state changes
 const notifyListeners = () => {
-  // Update cached snapshot before notifying (must be done first!)
   cachedSnapshot = {
     tickers,
     isConnected,
@@ -48,7 +44,6 @@ const notifyListeners = () => {
   listeners.forEach(listener => listener());
 };
 
-// Connect to WebSocket
 const connect = () => {
   if (isConnecting || (ws && ws.readyState === WebSocket.OPEN)) {
     return;
@@ -67,7 +62,6 @@ const connect = () => {
       console.log('[WS] ✓ Connected to Backpack successfully');
       notifyListeners();
 
-      // Subscribe to bookTicker streams for bid/ask prices
       setTimeout(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           const bookTickerStreams = SYMBOLS.map(s => `bookTicker.${s}`);
@@ -84,38 +78,30 @@ const connect = () => {
       try {
         const data = JSON.parse(event.data);
 
-        // Skip non-data messages
         if (data.id || data.error || !data.stream) {
           if (data.error) {
-            console.error('[WS] ❌ Error:', data.error);
+            console.error('[WS] Error:', data.error);
             error = data.error.msg || 'WebSocket error';
             notifyListeners();
           }
           return;
         }
 
-        // Handle bookTicker updates
         if (data.stream.startsWith('bookTicker.')) {
           const symbol = data.stream.replace('bookTicker.', '');
           const tickerData = data.data;
           const simpleSymbol = symbol.replace('_USDC', '');
-
-          // Backpack bookTicker fields: b = bid, a = ask
           const bid = parseFloat(tickerData.b || '0');
           const ask = parseFloat(tickerData.a || '0');
 
-          // Calculate change24h if we have previous data
           const prevTicker = tickers[simpleSymbol];
-          const lastPrice = ask; // Use ask as current price
+          const lastPrice = ask;
           let change24h = prevTicker?.change24h || 0;
-
-          // Approximate change based on bid/ask midpoint movement
           if (prevTicker && prevTicker.lastPrice > 0) {
             const diff = lastPrice - prevTicker.lastPrice;
             change24h = (diff / prevTicker.lastPrice) * 100;
           }
 
-          // Only update if values actually changed (reduces unnecessary re-renders)
           const hasChanged = !prevTicker || 
             prevTicker.bid !== bid || 
             prevTicker.ask !== ask;
@@ -146,7 +132,6 @@ const connect = () => {
       console.log(`[WS] Disconnected: code=${event.code}`);
       notifyListeners();
 
-      // Auto-reconnect
       setTimeout(() => {
         connect();
       }, RECONNECT_DELAY);
@@ -171,7 +156,6 @@ const connect = () => {
   }
 };
 
-// Subscribe to state changes (for useSyncExternalStore)
 const subscribe = (listener: () => void) => {
   listeners.add(listener);
   return () => {
@@ -179,14 +163,9 @@ const subscribe = (listener: () => void) => {
   };
 };
 
-
-
-// Get current state snapshot - returns cached reference
 const getSnapshot = (): WsState => {
   return cachedSnapshot;
 };
-
-// Server snapshot (for SSR - return stable reference)
 const serverSnapshot: WsState = {
   tickers: {},
   isConnected: false,
@@ -197,7 +176,6 @@ const getServerSnapshot = (): WsState => {
   return serverSnapshot;
 };
 
-// Initialize connection on first import
 connect();
 
 interface UseBackpackWsReturn {
@@ -207,15 +185,12 @@ interface UseBackpackWsReturn {
 }
 
 export const useBackpackWs = (): UseBackpackWsReturn => {
-  // useSyncExternalStore is React 18's recommended way to subscribe to external stores
-  // It handles concurrent rendering better than useState + useEffect
   const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   return state;
 };
 
-// Helper hook to get a specific ticker price with granular subscription
 export const useTicker = (symbol: string) => {
-  // Subscribe specifically to the ticker for this symbol
+  
   const ticker = useSyncExternalStore(subscribe, () => cachedSnapshot.tickers[symbol]);
   const isConnected = useSyncExternalStore(subscribe, () => cachedSnapshot.isConnected);
   const error = useSyncExternalStore(subscribe, () => cachedSnapshot.error);

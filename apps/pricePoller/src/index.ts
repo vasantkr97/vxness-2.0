@@ -18,9 +18,7 @@ async function streamToRedis(payload: unknown): Promise<void> {
             console.warn("No data field in message:", payload);
             return;
         }
-
-        //console.log("[Poller] Sending priceData:", priceData); 
-
+       
         const event: PriceEvent = {
             kind: "price-update",
             payload: priceData,
@@ -70,7 +68,6 @@ function connectToExchange() {
         const parsed = parseMessage(data);
 
         if (parsed) {
-            //console.log("REceived:", JSON.stringify(parsed))
             await streamToRedis(parsed);
         }
     })

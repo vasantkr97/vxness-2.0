@@ -20,7 +20,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Hooks
+
   const { data: balances } = useBalances();
   const { ask: askPrice, bid: bidPrice } = useTicker(asset);
   const createOrder = useCreateOrder();
@@ -28,14 +28,12 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
 
   const currentPrice = side === 'long' ? askPrice : bidPrice;
 
-  // Derive available balance
   const availableBalance = React.useMemo(() => {
     if (!balances) return 0;
     const usdc = balances.find(b => b.symbol === 'USDC');
     return usdc ? Number(usdc.balanceRaw) / Math.pow(10, usdc.balanceDecimals) : 0;
   }, [balances]);
 
-  // Reset inputs when asset changes
   useEffect(() => {
     setQty('');
     setTakeProfit('');
@@ -78,7 +76,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
     });
   };
 
-  // Calculations
   const quantityNum = parseFloat(qty) || 0;
   const notionalValue = quantityNum * currentPrice;
   const marginRequired = notionalValue / leverage;
@@ -86,7 +83,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
     ? currentPrice * (1 - 1 / leverage)
     : currentPrice * (1 + 1 / leverage);
 
-  // Validation
   const isInsufficientBalance = marginRequired > availableBalance;
   const isLoading = createOrder.isPending;
 
@@ -94,7 +90,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
     <div className="bg-dark-800 rounded-xl border border-dark-600/50 p-5 h-full flex flex-col no-scrollbar">
       <h3 className="text-white font-semibold mb-4">Place Order</h3>
 
-      {/* Side Tabs */}
       <div className="flex mb-5 shrink-0">
         <button
           type="button"
@@ -111,13 +106,11 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
       </div>
 
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
-        {/* Available Balance Header */}
         <div className="flex justify-between text-xs text-muted mb-2">
           <span>Avail. Balance</span>
           <span className="text-white font-mono">${availableBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
 
-        {/* Quantity */}
         <div className="mb-4 shrink-0">
           <Input
             label={`Quantity (${asset})`}
@@ -131,7 +124,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
           />
         </div>
 
-        {/* Leverage Slider */}
         <div className="mb-4 shrink-0">
           <label className="text-muted text-sm mb-2 flex justify-between">
             <span>Leverage</span>
@@ -157,7 +149,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
           </div>
         </div>
 
-        {/* TP / SL Inputs */}
         <div className="grid grid-cols-2 gap-3 mb-4 shrink-0">
           <Input
             label="Take Profit"
@@ -177,7 +168,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
           />
         </div>
 
-        {/* Live Order Summary Card */}
         {quantityNum > 0 && (
           <div className="bg-dark-700/50 rounded-lg p-4 mb-4 border border-dark-600/50 animate-in fade-in zoom-in duration-200 shrink-0">
             <div className="flex justify-between items-center mb-2">

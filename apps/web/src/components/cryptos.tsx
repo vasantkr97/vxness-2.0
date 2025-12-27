@@ -8,7 +8,6 @@ interface InstrumentsPanelProps {
   className?: string;
 }
 
-// Component for displaying price with flash animation
 const FlashPrice: React.FC<{ value: number; className?: string; updatedAt?: number }> = ({ 
   value, 
   className = '',
@@ -50,7 +49,6 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({ currentAsset
 
   return (
     <div className={`bg-dark-800 border-r border-dark-600/50 flex flex-col h-full ${className}`}>
-      {/* Header */}
       <div className="p-4 border-b border-dark-600/50">
         <div className="flex justify-between items-center mb-3">
             <h3 className="text-white font-semibold">Cryptos</h3>
@@ -85,9 +83,6 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({ currentAsset
             filteredTickers.map(ticker => {
                 const isSelected = currentAsset === ticker.symbol || currentAsset.startsWith(ticker.symbol);
                 const signal = ticker.change24h > 0 ? 'buy' : ticker.change24h < 0 ? 'sell' : 'neutral';
-                
-                // Log 24h change data for debugging
-                console.log(`${ticker.symbol}: change24h = ${ticker.change24h}, signal = ${signal}, bid = ${ticker.bid}, ask = ${ticker.ask}`);
                 
                 return (
                     <div 

@@ -11,24 +11,22 @@ const TIMEFRAMES = ['1m', '5m', '30m', '1h', '4h', '1d', '1w'];
 
 export const Chart: React.FC<ChartProps> = ({ asset }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  //const [chart, setChart] = useState<IChartApi | null>(null);
   const [series, setSeries] = useState<ISeriesApi<'Candlestick'> | null>(null);
   const [timeFrame, setTimeFrame] = useState('1h');
 
-  // Fetch Data using React Query
+ 
   const { data: candles, isLoading, isError } = useCandles(asset, timeFrame);
 
-  // Initialize Chart
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
     const chartInstance = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: '#111113' }, // dark-800
+        background: { type: ColorType.Solid, color: '#111113' }, 
         textColor: '#71717a',
       },
       grid: {
-        vertLines: { color: '#242428' }, // dark-600
+        vertLines: { color: '#242428' },
         horzLines: { color: '#242428' },
       },
       width: chartContainerRef.current.clientWidth,
@@ -67,18 +65,18 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
     };
   }, []);
 
-  // Update Series Data
+ 
   useEffect(() => {
     if (!series || !candles) return;
 
     const formattedData = candles.map((c: any) => {
-      // Convert time to Unix timestamp (seconds) if it's a string
+      
       let time = c.time;
       if (typeof time === 'string') {
-        // Parse datetime string like "2025-11-13 05:00:00" to Unix timestamp
+        
         time = Math.floor(new Date(time).getTime() / 1000);
       } else if (typeof time === 'number' && time > 1e12) {
-        // If it's already a timestamp in milliseconds, convert to seconds
+        
         time = Math.floor(time / 1000);
       }
 
@@ -99,7 +97,7 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
       <div className="p-4 border-b border-dark-600/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
           <h2 className="font-semibold text-lg text-white">{asset}</h2>
-          {/* Timeframe Selector */}
+          
           <div className="flex gap-1 bg-dark-700/50 p-1 rounded-lg overflow-x-auto max-w-full">
             {TIMEFRAMES.map((tf) => (
               <button
