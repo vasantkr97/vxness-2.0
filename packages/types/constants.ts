@@ -18,6 +18,6 @@ export const REDIS_ENGINE_CONSTANTS = {
     CALLBACK_QUEUE: "callback-queue",
     REQUEST_STREAM_KEY: "trading-engine",
     RETRY_DELAY_MS: 5000,
-    POLLING_TIMEOUT: 0
+    WAITING_TIMEOUT: 0
 } as const
 

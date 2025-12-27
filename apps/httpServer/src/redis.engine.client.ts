@@ -25,31 +25,31 @@ const parseStreamData = (rawFields: string[]): EngineResponse => {
     return data
 }
 
-//Continuously polls Redis for new engine responses, "Recursive Polling" pattern 
+//Continuously waits for Redis engine responses using blocking XREAD, "Blocking Wait" pattern 
 const startListeningLoop = async (): Promise<void> => {
     if (isListenerActive) return;
     isListenerActive = true;
 
     let lastReadMessageId = "$"
-    console.log(`[Redis:Listener] 🟢 Listening for engine responses on '${REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE}'...`);
+    console.log(`[Redis:Listener] Listening for engine responses on '${REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE}'...`);
 
-    const pollForNewMessage = async () => {
+    const waitForNewMessage = async () => {
         try {
             const streams = await subscriberBlockingRedis.xread(
                 "BLOCK",
-                REDIS_ENGINE_CONSTANTS.POLLING_TIMEOUT,
+                REDIS_ENGINE_CONSTANTS.WAITING_TIMEOUT,
                 "STREAMS",
                 REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE,
                 lastReadMessageId
             )
 
             if (!streams || streams.length === 0) {
-                return setImmediate(pollForNewMessage)
+                return setImmediate(waitForNewMessage)
             }
 
             const streamData = streams[0];
             if (!streamData) {
-                return setImmediate(pollForNewMessage)
+                return setImmediate(waitForNewMessage)
             }
 
             const messages = streamData[1]
@@ -61,7 +61,7 @@ const startListeningLoop = async (): Promise<void> => {
                 const correlationId = responseData.id; 
 
                 if (correlationId && pendingRequests.has(correlationId)) {
-                    console.log(`[Redis:Listener] ✅ Received reply for ${correlationId}`);
+                    console.log(`[Redis:Listener] Received reply for ${correlationId}`);
 
                     const resolveFunction = pendingRequests.get(correlationId)!;
 
@@ -82,14 +82,14 @@ const startListeningLoop = async (): Promise<void> => {
                 }
             }
 
-            setImmediate(pollForNewMessage)
+            setImmediate(waitForNewMessage)
         } catch (error) {
             //await new Promise(r => setTimeout(r, RETRY_DELAY_MS))
-            setTimeout(pollForNewMessage, REDIS_ENGINE_CONSTANTS.RETRY_DELAY_MS)
+            setTimeout(waitForNewMessage, REDIS_ENGINE_CONSTANTS.RETRY_DELAY_MS)
         }
     }
 
-    pollForNewMessage()
+    waitForNewMessage()
 }
 
 export const dispatchToEngine = async (
