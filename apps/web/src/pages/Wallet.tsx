@@ -69,9 +69,9 @@ export const Wallet: React.FC = () => {
                 className="w-full bg-dark-700 border border-dark-600/50 rounded-lg px-4 py-3 text-white outline-none focus:border-accent/50"
               >
                 <option value="USDC">USDC</option>
-                <option value="BTC">BTC</option>
+                {/* <option value="BTC">BTC</option>
                 <option value="ETH">ETH</option>
-                <option value="SOL">SOL</option>
+                <option value="SOL">SOL</option> */}
               </select>
             </div>
             <Input

@@ -161,7 +161,7 @@ export const PositionsTable: React.FC<PositionsTableProps> = () => {
           </button>
       </div>
       
-      <div className="overflow-auto flex-1">
+      <div className="overflow-auto flex-1 no-scrollbar">
         <table className="w-full relative">
           <thead className="sticky top-0 bg-dark-800 z-10 shadow-sm">
             <tr className="text-muted text-xs uppercase tracking-wider border-b border-dark-600/50">

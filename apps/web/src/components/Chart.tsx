@@ -7,7 +7,7 @@ interface ChartProps {
   asset: string;
 }
 
-const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'];
+const TIMEFRAMES = ['1m', '5m', '30m', '1h', '4h', '1d', '1w'];
 
 export const Chart: React.FC<ChartProps> = ({ asset }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -25,7 +25,7 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
     const chartInstance = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: '#111113' }, // dark-800
-        textColor: '#71717a', // muted
+        textColor: '#71717a',
       },
       grid: {
         vertLines: { color: '#242428' }, // dark-600
@@ -42,10 +42,9 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
       },
     });
 
-    // lightweight-charts v5 uses addSeries() with series type as first argument
     const candlestickSeries = chartInstance.addSeries(CandlestickSeries, {
-      upColor: '#22c55e', // success
-      downColor: '#ef4444', // danger
+      upColor: '#22c55e',
+      downColor: '#ef4444',
       borderVisible: false,
       wickUpColor: '#22c55e',
       wickDownColor: '#ef4444',
@@ -111,7 +110,7 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
                     : 'text-muted hover:text-white hover:bg-dark-600/50'
                   }`}
               >
-                {tf.toUpperCase()}
+                {tf.toLowerCase()}
               </button>
             ))}
           </div>

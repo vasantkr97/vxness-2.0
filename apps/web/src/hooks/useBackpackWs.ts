@@ -222,7 +222,7 @@ export const useTicker = (symbol: string) => {
 
   return {
     ticker: ticker || null,
-    price: ticker ? ticker.ask : 0,
+    ask: ticker ? ticker.ask : 0,
     bid: ticker ? ticker.bid : 0,
     isConnected,
     error,

@@ -47,7 +47,7 @@ export const Header: React.FC = () => {
   // Data hooks
   const { data: balances } = useBalances();
   // Fetch price for the currently selected asset
-  const { price, updatedAt } = useTicker(currentAsset);
+  const { ask, updatedAt } = useTicker(currentAsset);
 
   // Calculate total estimated balance
   const totalBalance = React.useMemo(() => {
@@ -70,8 +70,8 @@ export const Header: React.FC = () => {
     <header className="h-16 bg-dark-800 border-b border-dark-600/50 flex items-center justify-between px-6 sticky top-0 z-50">
       <div className="flex items-center gap-6">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center font-bold text-white">V</div>
-          <span className="font-bold text-xl tracking-tight hidden sm:block">vxness</span>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white" style={{ backgroundColor: '#4387ecff' }}>V</div>
+          <span className="font-bold text-xl tracking-tight hidden sm:block" >vxness</span>
         </Link>
 
         {user && (
@@ -81,7 +81,7 @@ export const Header: React.FC = () => {
                 {currentAsset.includes('_') ? currentAsset.replace('_', '/') : `${currentAsset}/USDC`}
               </span>
               <span className="text-sm font-semibold text-white">
-                <FlashPrice value={price} updatedAt={updatedAt} />
+                <FlashPrice value={ask} updatedAt={updatedAt} />
               </span>
             </div>
           </div>

@@ -6,8 +6,8 @@ export const useBalances = () => {
   return useQuery({
     queryKey: ['balances'],
     queryFn: balanceService.getAll,
-    staleTime: 10000, // 10 seconds
-    retry: false, // Don't retry on 401
+    staleTime: 5000,
+    retry: false,
   });
 };
 

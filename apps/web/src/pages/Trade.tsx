@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Chart } from '../components/Chart';
 import { OrderForm } from '../components/OrderForm';
 import { PositionsTable } from '../components/PositionsTable';
-import { InstrumentsPanel } from '../components/InstrumentsPanel';
+import { InstrumentsPanel } from '../components/cryptos';
 import { useAuth } from '../hooks/useAuth';
 import { useTrade } from '../context/TradeContext';
 import { Button } from '../components/ui/Button';
@@ -188,7 +188,7 @@ export const Trade: React.FC = () => {
            />
            
            {/* Order Form or Inline Auth (Right Side) */}
-           <div style={{ width: rightWidth }} className="flex-shrink-0 bg-dark-800 border-l border-dark-600/50 overflow-y-auto">
+           <div style={{ width: rightWidth }} className="flex-shrink-0 bg-dark-800 border-l border-dark-600/50 overflow-y-auto no-scrollbar">
               <div className="p-4 h-full">
                  {user ? (
                    <OrderForm asset={orderFormAsset} />

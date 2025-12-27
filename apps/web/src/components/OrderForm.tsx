@@ -22,8 +22,11 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
 
   // Hooks
   const { data: balances } = useBalances();
-  const { price: currentPrice } = useTicker(asset);
+  const { ask: askPrice, bid: bidPrice } = useTicker(asset);
   const createOrder = useCreateOrder();
+
+
+  const currentPrice = side === 'long' ? askPrice : bidPrice;
 
   // Derive available balance
   const availableBalance = React.useMemo(() => {
@@ -88,7 +91,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
   const isLoading = createOrder.isPending;
 
   return (
-    <div className="bg-dark-800 rounded-xl border border-dark-600/50 p-5 h-full flex flex-col">
+    <div className="bg-dark-800 rounded-xl border border-dark-600/50 p-5 h-full flex flex-col no-scrollbar">
       <h3 className="text-white font-semibold mb-4">Place Order</h3>
 
       {/* Side Tabs */}
@@ -140,7 +143,10 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
             max="100"
             value={leverage}
             onChange={(e) => setLeverage(parseInt(e.target.value))}
-            className="w-full accent-accent h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer"
+            className="w-full h-2 rounded-lg appearance-none cursor-pointer leverage-slider"
+            style={{
+              background: `linear-gradient(to right, #4c94ff 0%, #4c94ff ${((leverage - 1) / 99) * 100}%, #48484fff ${((leverage - 1) / 99) * 100}%, #383840ff 100%)`
+            }}
           />
           <div className="flex justify-between text-xs text-muted mt-1">
             <span>1x</span>
@@ -204,16 +210,14 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
         {error && <div className="mb-4 p-3 bg-danger/10 border border-danger/20 rounded text-danger text-sm shrink-0">{error}</div>}
         {success && <div className="mb-4 p-3 bg-success/10 border border-success/20 rounded text-success text-sm shrink-0">{success}</div>}
 
-        {/* Submit */}
         <div className="mt-auto">
           <Button
             type="submit"
             fullWidth
             disabled={isLoading || isInsufficientBalance || quantityNum <= 0}
-            variant={side === 'long' ? 'primary' : 'danger'}
-            className={`py-4 text-base shadow-lg ${side === 'long'
-                ? 'bg-success hover:bg-success/90 shadow-success/10'
-                : 'bg-danger hover:bg-danger/90 shadow-danger/10'
+            className={`py-4 text-base shadow-lg border-2 transition-all bg-transparent ${side === 'long'
+                ? 'border-success text-success hover:bg-success hover:text-white'
+                : 'border-danger text-danger hover:bg-danger hover:text-white'
               }`}
           >
             {isLoading ? 'Processing...' : (

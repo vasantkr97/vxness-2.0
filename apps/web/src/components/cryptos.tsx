@@ -53,7 +53,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({ currentAsset
       {/* Header */}
       <div className="p-4 border-b border-dark-600/50">
         <div className="flex justify-between items-center mb-3">
-            <h3 className="text-white font-semibold">INSTRUMENTS</h3>
+            <h3 className="text-white font-semibold">Cryptos</h3>
             <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-success shadow-lg shadow-success/50' : 'bg-danger'}`} title={isConnected ? 'Connected' : 'Disconnected'} />
         </div>
         <div className="relative">
@@ -76,7 +76,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({ currentAsset
           <div className="text-right">Ask</div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto no-scrollbar">
           {displayTickers.length === 0 ? (
              <div className="p-4 text-center text-muted text-sm">
                 {isConnected ? 'Waiting for data...' : 'Connecting to market...'}
@@ -85,6 +85,9 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({ currentAsset
             filteredTickers.map(ticker => {
                 const isSelected = currentAsset === ticker.symbol || currentAsset.startsWith(ticker.symbol);
                 const signal = ticker.change24h > 0 ? 'buy' : ticker.change24h < 0 ? 'sell' : 'neutral';
+                
+                // Log 24h change data for debugging
+                console.log(`${ticker.symbol}: change24h = ${ticker.change24h}, signal = ${signal}, bid = ${ticker.bid}, ask = ${ticker.ask}`);
                 
                 return (
                     <div 
@@ -106,7 +109,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({ currentAsset
                         <div className={`text-right text-sm font-mono whitespace-nowrap flex items-center justify-end ${ticker.change24h >= 0 ? 'text-success' : 'text-danger'}`}>
                             <FlashPrice value={ticker.bid} updatedAt={ticker.updatedAt} />
                         </div>
-                        <div className="text-right text-sm font-mono whitespace-nowrap flex items-center justify-end text-muted">
+                        <div className={`text-right text-sm font-mono whitespace-nowrap flex items-center justify-end ${ticker.change24h >= 0 ? 'text-success' : 'text-danger'}`}>
                             <FlashPrice value={ticker.ask} updatedAt={ticker.updatedAt} />
                         </div>
                     </div>
