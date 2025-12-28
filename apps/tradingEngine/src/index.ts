@@ -167,7 +167,6 @@ function executeClose(order: engineOrder, price: number, reason: string, pnl: nu
     sendCallback(order.id, "closed", { reason, pnl: fromInt(pnl), price: fromInt(price) })
 }
 
-
 function checkOrderRisk(order: engineOrder, currentPrice: number) {
     const pnl = calcPnl(order.side, order.openingPrice, currentPrice, order.qty);
     const remainingMargin = order.initialMargin + pnl;
