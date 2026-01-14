@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useBalances, useDeposit } from '../hooks/useBalances';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { Select } from '../components/ui/Select';
 import type { Balance } from '../types';
 
 export const Wallet: React.FC = () => {
@@ -27,7 +28,18 @@ export const Wallet: React.FC = () => {
   };
 
   const getDisplayBalance = (b: Balance) => {
-    return (Number(b.balanceRaw) / Math.pow(10, b.balanceDecimals)).toLocaleString();
+    const balance = Number(b.balanceRaw) / Math.pow(10, b.balanceDecimals);
+    
+    // Show 2 decimals for USDC and SOL
+    if (b.symbol === 'USDC' || b.symbol === 'SOL') {
+      return balance.toLocaleString(undefined, { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+      });
+    }
+    
+    // Default formatting for other assets (BTC, ETH, etc.)
+    return balance.toLocaleString();
   };
 
   return (
@@ -35,7 +47,7 @@ export const Wallet: React.FC = () => {
       <h1 className="text-2xl font-bold mb-6">Wallet</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
+
         <div className="bg-dark-800 rounded-xl border border-dark-600/50 p-6">
           <h2 className="text-lg font-semibold mb-4">Assets</h2>
           <div className="space-y-4">
@@ -60,19 +72,17 @@ export const Wallet: React.FC = () => {
         <div className="bg-dark-800 rounded-xl border border-dark-600/50 p-6 h-fit">
           <h2 className="text-lg font-semibold mb-4">Deposit Funds</h2>
           <form onSubmit={handleDeposit} className="space-y-4">
-            <div>
-              <label className="text-muted text-sm mb-1.5 block">Asset</label>
-              <select
-                value={selectedAsset}
-                onChange={(e) => setSelectedAsset(e.target.value)}
-                className="w-full bg-dark-700 border border-dark-600/50 rounded-lg px-4 py-3 text-white outline-none focus:border-accent/50"
-              >
-                <option value="USDC">USDC</option>
-                {/* <option value="BTC">BTC</option>
-                <option value="ETH">ETH</option>
-                <option value="SOL">SOL</option> */}
-              </select>
-            </div>
+            <Select
+              label="Asset"
+              value={selectedAsset}
+              onChange={setSelectedAsset}
+              options={[
+                { value: 'USDC', label: 'USDC' },
+                { value: 'BTC', label: 'BTC' },
+                { value: 'ETH', label: 'ETH' },
+                { value: 'SOL', label: 'SOL' },
+              ]}
+            />
             <Input
               label="Amount"
               type="number"

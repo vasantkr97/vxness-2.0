@@ -1,19 +1,16 @@
 
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, memo } from 'react';
 import { useOrders, useCloseOrder } from '../hooks/useOrders';
 import { useTicker } from '../hooks/useBackpackWs';
 import type { Order } from '../types';
 
-interface PositionsTableProps {}
+interface PositionsTableProps { }
 
-const PnlValue: React.FC<{ value: number; flashState: 'up' | 'down' | null }> = ({ value, flashState }) => {
+const PnlValue: React.FC<{ value: number }> = ({ value }) => {
   const isPositive = value >= 0;
-  let bgClass = '';
-  if (flashState === 'up') bgClass = 'bg-green-500/20 text-green-100';
-  if (flashState === 'down') bgClass = 'bg-red-500/20 text-red-100';  
 
   return (
-    <span className={`font-mono py-0.5 rounded transition-colors duration-300 ${bgClass} ${flashState ? '' : (isPositive ? 'text-success' : 'text-danger')}`}>
+    <span className={`font-mono py-0.5 rounded ${isPositive ? 'text-success' : 'text-danger'}`}>
       ${value.toFixed(2)}
     </span>
   );
@@ -28,66 +25,55 @@ interface PositionRowProps {
 
 const PositionRow = memo(({ order, onClose, isClosing }: PositionRowProps) => {
   const { ask: currentPrice, bid } = useTicker(order.symbol);
-  const [flashState, setFlashState] = useState<'up' | 'down' | null>(null);
-  const prevPnlRef = useRef<number | null>(null);
 
-  
+  const stats = React.useMemo(() => {
+    const qty = order.quantity ? Number(order.quantity) / Math.pow(10, order.quantityDecimals ?? 4) : 0;
+    // Price seems to be already normalized based on values seen, but if we needed to normalize it we would use priceDecimals if available.
+    // Assuming price is safe for now as per user feedback (only PnL/Qty looked wrong).
+    return { qty };
+  }, [order.quantity, order.quantityDecimals]);
+
+
   const calculatePnl = () => {
-    if (!currentPrice || !order.price || !order.quantity) return order.pnl ?? 0;
-    
+    if (!currentPrice || !order.price || !stats.qty) return order.pnl ?? 0;
+
     const exitPrice = order.orderType === 'long' ? bid : currentPrice;
-    
-    const priceDiff = order.orderType === 'long' 
-      ? exitPrice - order.price 
+
+    const priceDiff = order.orderType === 'long'
+      ? exitPrice - order.price
       : order.price - exitPrice;
-    
-    return priceDiff * order.quantity;
+
+    return priceDiff * stats.qty;
   };
 
   const livePnl = calculatePnl();
 
-  useEffect(() => {
-    if (prevPnlRef.current !== null) {
-      const diff = livePnl - prevPnlRef.current;
-      if (Math.abs(diff) > 0.00001) {   
-        if (diff > 0) {
-          setFlashState('up');
-        } else if (diff < 0) {
-          setFlashState('down');
-        }
-        
-        const timer = setTimeout(() => setFlashState(null), 300); 
-        return () => clearTimeout(timer);
-      }
-    }
-    prevPnlRef.current = livePnl;
-  }, [livePnl]);
+
 
   return (
     <tr className="border-b border-dark-600/30 hover:bg-dark-700/50 transition-colors group">
       <td className="py-3 px-4 font-medium text-white">{order.symbol}</td>
       <td className={`py-3 px-4 font-medium ${order.orderType === 'long' ? 'text-success' : 'text-danger'}`}>
-        {order.orderType.toUpperCase()}
+        {order.orderType === 'long' ? 'Buy' : 'Sell'}
       </td>
       <td className="text-right py-3 px-4 text-muted">{order.leverage}x</td>
-      <td className="text-right py-3 px-4 text-white font-mono">
+      <td className="text-right py-3 px-4 text-gray-300 font-mono">
         ${order.price?.toLocaleString() ?? '-'}
       </td>
-      <td className="text-right py-3 px-4 text-white font-mono">
-        {order.quantity?.toFixed(5) ?? '-'}
+      <td className="text-right py-3 px-4 text-gray-300 font-mono">
+        {stats.qty?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 }) ?? '-'}
       </td>
       <td className="text-right py-3 px-4 font-medium">
-        <PnlValue value={livePnl} flashState={flashState} />
+        <PnlValue value={livePnl} />
       </td>
       <td className="text-right py-3 px-4">
-        <button 
+        <button
           onClick={() => onClose(order.id)}
           disabled={isClosing}
-          className={`text-xs px-3 py-1.5 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 ${
-            isClosing 
-              ? 'bg-yellow-600/50 text-yellow-200 cursor-wait' 
-              : 'bg-dark-600 hover:bg-dark-500 text-white'
-          } disabled:opacity-50`}
+          className={`text-xs px-3 py-1.5 rounded transition-colors ${isClosing
+            ? 'bg-yellow-600/50 text-yellow-200 cursor-wait'
+            : 'bg-red-500 hover:bg-red-600 text-white'
+            } disabled:opacity-50`}
         >
           {isClosing ? 'Closing...' : 'Close'}
         </button>
@@ -122,7 +108,7 @@ export const PositionsTable: React.FC<PositionsTableProps> = () => {
   };
 
   const activeOrders = orders.filter(o => o.status === 'open');
-  const historyOrders = orders.filter(o => o.status === 'closed').sort((a,b) => 
+  const historyOrders = orders.filter(o => o.status === 'closed').sort((a, b) =>
     new Date(b.closedAt || 0).getTime() - new Date(a.closedAt || 0).getTime()
   );
 
@@ -135,27 +121,27 @@ export const PositionsTable: React.FC<PositionsTableProps> = () => {
           <button onClick={() => setCloseError(null)} className="text-danger hover:text-white">✕</button>
         </div>
       )}
-      
+
       {/* Tabs */}
       <div className="flex border-b border-dark-600/50 bg-dark-800">
-          <button 
-             onClick={() => setActiveTab('positions')}
-             className={`px-6 py-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'positions' ? 'border-accent text-white' : 'border-transparent text-muted hover:text-white'}`}
-          >
-             Open Positions ({activeOrders.length})
-          </button>
-          <button 
-             onClick={() => setActiveTab('history')}
-             className={`px-6 py-4 text-sm font-medium transition-colors border-b-2 ${activeTab === 'history' ? 'border-accent text-white' : 'border-transparent text-muted hover:text-white'}`}
-          >
-             Order History
-          </button>
+        <button
+          onClick={() => setActiveTab('positions')}
+          className={`px-6 py-4 text-sm font-medium transition-colors border-b ${activeTab === 'positions' ? 'border-accent text-white' : 'border-transparent text-muted hover:text-white'}`}
+        >
+          Open Positions ({activeOrders.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`px-6 py-4 text-sm font-medium transition-colors border-b ${activeTab === 'history' ? 'border-accent text-white' : 'border-transparent text-muted hover:text-white'}`}
+        >
+          Order History
+        </button>
       </div>
-      
+
       <div className="overflow-auto flex-1 no-scrollbar">
         <table className="w-full relative">
           <thead className="sticky top-0 bg-dark-800 z-10 shadow-sm">
-            <tr className="text-muted text-xs uppercase tracking-wider border-b border-dark-600/50">
+            <tr className="text-muted text-xs tracking-wider border-b border-dark-600/50">
               <th className="text-left py-3 px-4 font-medium">Symbol</th>
               <th className="text-left py-3 px-4 font-medium">Side</th>
               <th className="text-right py-3 px-4 font-medium">Leverage</th>
@@ -171,47 +157,47 @@ export const PositionsTable: React.FC<PositionsTableProps> = () => {
             {(activeTab === 'positions' ? activeOrders : historyOrders).length === 0 ? (
               <tr>
                 <td colSpan={9} className="text-center py-12 text-muted">
-                   {activeTab === 'positions' ? 'No open positions' : 'No order history'}
+                  {activeTab === 'positions' ? 'No open positions' : 'No order history'}
                 </td>
               </tr>
             ) : (
-                activeTab === 'positions' ? (
-                  activeOrders.map(order => (
-                    <PositionRow 
-                      key={order.id} 
-                      order={order} 
-                      onClose={handleClose} 
-                      isClosing={closingOrderId === order.id} 
-                    />
-                  ))
-                ) : (
-                  historyOrders.map(order => (
-                    <tr key={order.id} className="border-b border-dark-600/30 hover:bg-dark-700/50 transition-colors">
-                      <td className="py-3 px-4 font-medium text-white">{order.symbol}</td>
-                      <td className={`py-3 px-4 font-medium ${order.orderType === 'long' ? 'text-success' : 'text-danger'}`}>
-                        {order.orderType.toUpperCase()}
-                      </td>
-                      <td className="text-right py-3 px-4 text-muted">{order.leverage}x</td>
-                      <td className="text-right py-3 px-4 text-white font-mono">
-                        ${order.price?.toLocaleString() ?? '-'}
-                      </td>
-                      <td className="text-right py-3 px-4 text-white font-mono">
-                        ${order.exitPrice?.toLocaleString() || '-'}
-                      </td>
-                      <td className="text-right py-3 px-4 text-white font-mono">
-                        {order.quantity?.toFixed(5) ?? '-'}
-                      </td>
-                      <td className="text-right py-3 px-4 font-medium">
-                         <span className={`font-mono py-0.5 rounded ${order.pnl && order.pnl >= 0 ? 'text-success' : 'text-danger'}`}>
-                           ${order.pnl?.toFixed(2) ?? '0.00'}
-                         </span>
-                      </td>
-                      <td className="text-right py-3 px-4 text-muted text-sm">
-                        {order.closedAt ? new Date(order.closedAt).toLocaleDateString() : '-'}
-                      </td>
-                    </tr>
-                  ))
-                )
+              activeTab === 'positions' ? (
+                activeOrders.map(order => (
+                  <PositionRow
+                    key={order.id}
+                    order={order}
+                    onClose={handleClose}
+                    isClosing={closingOrderId === order.id}
+                  />
+                ))
+              ) : (
+                historyOrders.map(order => (
+                  <tr key={order.id} className="border-b border-dark-600/30 hover:bg-dark-700/50 transition-colors">
+                    <td className="py-3 px-4 font-medium text-white">{order.symbol}</td>
+                    <td className={`py-3 px-4 font-medium ${order.orderType === 'long' ? 'text-success' : 'text-danger'}`}>
+                      {order.orderType === 'long' ? 'Buy' : 'Sell'}
+                    </td>
+                    <td className="text-right py-3 px-4 text-muted">{order.leverage}x</td>
+                    <td className="text-right py-3 px-4 text-gray-300 font-mono">
+                      ${order.price?.toLocaleString() ?? '-'}
+                    </td>
+                    <td className="text-right py-3 px-4 text-gray-300 font-mono">
+                      ${order.exitPrice?.toLocaleString() || '-'}
+                    </td>
+                    <td className="text-right py-3 px-4 text-gray-300 font-mono">
+                      {(order.quantity ? Number(order.quantity) / Math.pow(10, order.quantityDecimals ?? 4) : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 }) ?? '-'}
+                    </td>
+                    <td className="text-right py-3 px-4 font-medium">
+                      <span className={`font-mono py-0.5 rounded ${order.pnl && order.pnl >= 0 ? 'text-success' : 'text-danger'}`}>
+                        ${order.pnl?.toFixed(2) ?? '0.00'}
+                      </span>
+                    </td>
+                    <td className="text-right py-3 px-4 text-muted text-sm">
+                      {order.closedAt ? new Date(order.closedAt).toLocaleDateString() : '-'}
+                    </td>
+                  </tr>
+                ))
+              )
             )}
           </tbody>
         </table>

@@ -14,7 +14,7 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
   const [series, setSeries] = useState<ISeriesApi<'Candlestick'> | null>(null);
   const [timeFrame, setTimeFrame] = useState('1h');
 
- 
+
   const { data: candles, isLoading, isError } = useCandles(asset, timeFrame);
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
 
     const chartInstance = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: '#111113' }, 
+        background: { type: ColorType.Solid, color: '#111113' },
         textColor: '#71717a',
       },
       grid: {
@@ -38,45 +38,47 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
       rightPriceScale: {
         borderColor: '#242428',
       },
+      autoSize: true,
     });
 
     const candlestickSeries = chartInstance.addSeries(CandlestickSeries, {
-      upColor: '#22c55e',
+      upColor: '#10B981',
       downColor: '#ef4444',
       borderVisible: false,
-      wickUpColor: '#22c55e',
+      wickUpColor: '#10B981',
       wickDownColor: '#ef4444',
     });
 
 
     setSeries(candlestickSeries);
 
-    const handleResize = () => {
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries.length === 0 || !entries[0].contentRect) return;
       if (chartContainerRef.current) {
         chartInstance.applyOptions({ width: chartContainerRef.current.clientWidth });
       }
-    };
+    });
 
-    window.addEventListener('resize', handleResize);
+    resizeObserver.observe(chartContainerRef.current);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       chartInstance.remove();
     };
   }, []);
 
- 
+
   useEffect(() => {
     if (!series || !candles) return;
 
     const formattedData = candles.map((c: any) => {
-      
+
       let time = c.time;
       if (typeof time === 'string') {
-        
+
         time = Math.floor(new Date(time).getTime() / 1000);
       } else if (typeof time === 'number' && time > 1e12) {
-        
+
         time = Math.floor(time / 1000);
       }
 
@@ -97,15 +99,15 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
       <div className="p-4 border-b border-dark-600/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
           <h2 className="font-semibold text-lg text-white">{asset}</h2>
-          
+
           <div className="flex gap-1 bg-dark-700/50 p-1 rounded-lg overflow-x-auto max-w-full">
             {TIMEFRAMES.map((tf) => (
               <button
                 key={tf}
                 onClick={() => setTimeFrame(tf)}
                 className={`px-2 py-1 text-xs font-medium rounded transition-all whitespace-nowrap ${timeFrame === tf
-                    ? 'bg-dark-600 text-white shadow-sm'
-                    : 'text-muted hover:text-white hover:bg-dark-600/50'
+                  ? 'bg-dark-600 text-white shadow-sm'
+                  : 'text-muted hover:text-white hover:bg-dark-600/50'
                   }`}
               >
                 {tf.toLowerCase()}

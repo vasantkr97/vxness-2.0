@@ -67,7 +67,7 @@ async function processDbQueue() {
                     await prisma.wallet.upsert({
                         where: { userId_symbol: { userId, symbol } },
                         create: { userId, symbol, balanceRaw, balanceDecimals: decimals },
-                        update: { balanceRaw }
+                        update: { balanceRaw, balanceDecimals: decimals }
                     });
                 }
 

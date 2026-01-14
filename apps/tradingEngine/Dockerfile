@@ -14,7 +14,7 @@ RUN bun install
 
 # Generate Prisma Client
 WORKDIR /app/packages/db
-RUN bun run db:generate
+RUN bunx prisma generate
 
 # Run the trading-engine
 WORKDIR /app/apps/tradingEngine

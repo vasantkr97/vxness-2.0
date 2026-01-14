@@ -97,9 +97,8 @@ export const Trade: React.FC = () => {
   const { currentAsset: asset, setAsset } = useTrade();
 
   const [leftWidth, setLeftWidth] = useState(280);
-  const [rightWidth, setRightWidth] = useState(320);
   const [topHeightPercent, setTopHeightPercent] = useState(60);
-  const [resizing, setResizing] = useState<'left' | 'right' | 'vertical' | null>(null);
+  const [resizing, setResizing] = useState<'left' | 'vertical' | null>(null);
   const mainRef = useRef<HTMLDivElement>(null);
 
   const handleAssetSelect = (symbol: string) => {
@@ -108,7 +107,7 @@ export const Trade: React.FC = () => {
 
   const orderFormAsset = (['BTC', 'ETH', 'SOL'].includes(asset) ? asset : 'BTC') as 'BTC' | 'ETH' | 'SOL';
 
-  const startResize = (direction: 'left' | 'right' | 'vertical') => (e: React.MouseEvent) => {
+  const startResize = (direction: 'left' | 'vertical') => (e: React.MouseEvent) => {
     e.preventDefault();
     setResizing(direction);
   };
@@ -123,9 +122,6 @@ export const Trade: React.FC = () => {
     if (resizing === 'left') {
         const newWidth = Math.max(200, Math.min(e.clientX, 500));
         setLeftWidth(newWidth);
-    } else if (resizing === 'right') {
-        const newWidth = Math.max(250, Math.min(window.innerWidth - e.clientX, 600));
-        setRightWidth(newWidth);
     } else if (resizing === 'vertical' && mainRef.current) {
         const rect = mainRef.current.getBoundingClientRect();
         const relativeY = e.clientY - rect.top;
@@ -152,6 +148,7 @@ export const Trade: React.FC = () => {
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-dark-900">
       
+      {/* Left Panel: Instruments pannel */}
       <div style={{ width: leftWidth }} className="flex-shrink-0 hidden md:block relative">
         <InstrumentsPanel 
             currentAsset={asset} 
@@ -159,37 +156,22 @@ export const Trade: React.FC = () => {
             className="h-full w-full"
         />
         <div 
-            className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/50 transition-colors z-20 active:bg-accent"
+            className="absolute top-0 right-0 w-px h-full cursor-col-resize hover:bg-gray-500/50 transition-colors z-20 active:bg-gray-500"
             onMouseDown={startResize('left')}
         />
       </div>
 
+      {/* Middle Panel: Chart + Positions */}
       <div className="flex-1 flex flex-col min-w-0 bg-dark-900 relative" ref={mainRef}>
         
         <div style={{ height: `${topHeightPercent}%` }} className="flex w-full relative">
-           
            <div className="flex-1 min-w-0 bg-dark-800 relative">
               <Chart asset={asset} />
-           </div>
-
-           <div 
-              className="w-1 h-full cursor-col-resize hover:bg-accent/50 bg-dark-600/30 transition-colors z-20 active:bg-accent flex-shrink-0"
-              onMouseDown={startResize('right')}
-           />
-           
-           <div style={{ width: rightWidth }} className="flex-shrink-0 bg-dark-800 border-l border-dark-600/50 overflow-y-auto no-scrollbar">
-              <div className="p-4 h-full">
-                 {user ? (
-                   <OrderForm asset={orderFormAsset} />
-                 ) : (
-                   <InlineAuthForm />
-                 )}
-              </div>
            </div>
         </div>
 
         <div 
-            className="h-1 w-full cursor-row-resize hover:bg-accent/50 bg-dark-600/50 transition-colors z-20 active:bg-accent flex-shrink-0"
+            className="h-px w-full cursor-row-resize bg-dark-600/50 transition-colors z-20 active:bg-gray-500 flex-shrink-0"
             onMouseDown={startResize('vertical')}
         />
 
@@ -203,6 +185,18 @@ export const Trade: React.FC = () => {
            )}
         </div>
       </div>
+
+      {/* Right Panel: Order Form */}
+      <div className="flex-shrink-0 w-[320px] bg-dark-800 border-l border-dark-600/50 overflow-y-auto no-scrollbar">
+          <div className="p-4 h-full">
+              {user ? (
+                <OrderForm asset={orderFormAsset} />
+              ) : (
+                <InlineAuthForm />
+              )}
+          </div>
+      </div>
+
     </div>
   );
 };

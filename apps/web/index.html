@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="" />
+    <link rel="icon" type="image/png" href="/vxness_logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>vxness</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -18,10 +18,10 @@
                 600: '#242428',
                 500: '#2d2d32',
               },
-              accent: '#4c94ff',
-              success: '#22c55e',
+              accent: '#F59E0B',
+              success: '#10B981',
               danger: '#ef4444',
-              muted: '#71717a',
+              muted: '#9CA3AF',
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
@@ -49,8 +49,21 @@
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #4c94ff; 
+        background: #10B981; 
       }
+
+      /* Hide number input spinners */
+      input[type=number]::-webkit-inner-spin-button, 
+      input[type=number]::-webkit-outer-spin-button { 
+        -webkit-appearance: none; 
+        margin: 0; 
+        display: none !important;
+      }
+      input[type=number] {
+        -moz-appearance: textfield !important;
+        appearance: textfield !important;
+      }
+
     </style>
   <script type="importmap">
 {

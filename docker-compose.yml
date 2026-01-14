@@ -1,19 +1,88 @@
 services:
-  redis:
-    image: redis:latest
-    ports:
-      - "6379:6379"
-      
+  # --------------------------------------------------------------------------------
+  # Persistence Services
+  # --------------------------------------------------------------------------------
   postgres:
-    image: postgres:latest
-    environment: 
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password123
-      POSTGRES_DB: postgres
-    ports:
-      - "5433:5432"
-#     volumes:
-#       - postgresData:/var/lib/postgresql
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+      POSTGRES_DB: ${POSTGRES_DB:-vxness}
+    volumes: 
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-# volumes:
-#   postgresData:
+  redis:
+    image: redis:alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------------
+  # Application Services
+  # --------------------------------------------------------------------------------
+  http-server:
+    build:
+      context: .
+      dockerfile: apps/httpServer/Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password123}@postgres:5432/${POSTGRES_DB:-vxness}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PORT: 3000
+      # Add other necessary env vars here, e.g. JWT_SECRET
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  trading-engine:
+    build:
+      context: .
+      dockerfile: apps/tradingEngine/Dockerfile
+    restart: always
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password123}@postgres:5432/${POSTGRES_DB:-vxness}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Deploying only 1 replica to avoid concurrency issues with simple engine
+    deploy:
+      replicas: 1
+
+  price-poller:
+    build:
+      context: .
+      dockerfile: apps/pricePoller/Dockerfile
+    restart: always
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Add API keys if needed for external price sources
+    depends_on:
+      redis:
+        condition: service_healthy
+
+
+
+volumes:
+  postgres_data:
+  redis_data:

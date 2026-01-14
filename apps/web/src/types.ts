@@ -27,6 +27,7 @@ export interface Order {
   symbol: string;
   orderType: 'long' | 'short';
   quantity: number | null;
+  quantityDecimals: number; // defaulting to 8 if not provided by legacy backends
   price: number | null;
   status: 'open' | 'closed';
   pnl: number | null;

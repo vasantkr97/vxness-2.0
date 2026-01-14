@@ -21,6 +21,11 @@ export const useCreateOrder = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['balances'] });
+      // Delayed refetch to catch trading engine's batched DB writes
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['balances'] });
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      }, 1500);
     },
   });
 };

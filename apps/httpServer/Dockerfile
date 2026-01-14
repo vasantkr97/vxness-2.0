@@ -14,7 +14,7 @@ RUN bun install
 
 # Generate Prisma Client
 WORKDIR /app/packages/db
-RUN bun run db:generate
+RUN bunx prisma generate
 
 # Build the http-server (if needed, or just run ts)
 # But since we are using bun, we can run TS directly or build.

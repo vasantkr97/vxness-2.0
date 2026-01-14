@@ -1,6 +1,6 @@
 export const ORDER_PRECISION = {
     PRICE: 100,
-    QUANTITY: 10000000
+    QUANTITY: 1000000
 } as const;
 
 // Define correct decimals for each cryptocurrency

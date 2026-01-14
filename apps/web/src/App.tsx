@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { TradeProvider } from './context/TradeContext';
+import { ToastProvider } from './context/ToastContext';
 import { Header } from './components/Header';
 import { Trade } from './pages/Trade';
 import { Wallet } from './pages/Wallet';
@@ -31,21 +32,23 @@ const Layout = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <TradeProvider>
-        <Router>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
+      <ToastProvider>
+        <TradeProvider>
+          <Router>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
 
-              <Route element={<ProtectedRoute />}>
-                <Route path="/" element={<Trade />} />
-                <Route path="/wallet" element={<Wallet />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/" element={<Trade />} />
+                  <Route path="/wallet" element={<Wallet />} />
+                </Route>
               </Route>
-            </Route>
-          </Routes>
-        </Router>
-      </TradeProvider>
+            </Routes>
+          </Router>
+        </TradeProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 };
