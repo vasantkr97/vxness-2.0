@@ -171,7 +171,7 @@ export const Trade: React.FC = () => {
         </div>
 
         <div 
-            className="h-px w-full cursor-row-resize bg-dark-600/50 transition-colors z-20 active:bg-gray-500 flex-shrink-0"
+            className="h-[3px] w-full cursor-row-resize bg-dark-600/50 transition-colors z-20 active:bg-gray-500 flex-shrink-0"
             onMouseDown={startResize('vertical')}
         />
 

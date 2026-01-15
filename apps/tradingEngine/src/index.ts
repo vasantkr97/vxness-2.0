@@ -252,13 +252,15 @@ async function handleCreateOrder(payload: any) {
 
     orders.set(id, order);
 
+    const decimals = SYMBOL_DECIMALS[normalizedAsset as Symbol] ?? 8;
+
     const orderData = {
         id,
         userId,
         symbol: normalizedAsset,
         side,
-        quantity: Math.round(Number(qty) * ORDER_PRECISION.QUANTITY),
-        quantityDecimals: 5,
+        quantity: Math.round(Number(qty) * Math.pow(10, decimals)),
+        quantityDecimals: decimals,
         leverage: lev,
         openPrice: Math.round(fromInt(openingPrice) * ORDER_PRECISION.PRICE),
         priceDecimals: 2,
@@ -334,8 +336,10 @@ async function loadState() {
 
 
     dbOrders.forEach((order: any) => {
+        const decimals = SYMBOL_DECIMALS[order.symbol as Symbol] ?? 8;
+        
         const openPriceFromDb = Number(order.openPrice) / ORDER_PRECISION.PRICE;  
-        const quantityFromDb = Number(order.quantity) / ORDER_PRECISION.QUANTITY;  
+        const quantityFromDb = Number(order.quantity) / Math.pow(10, decimals);  
 
         const opPrice = toInt(openPriceFromDb); 
         const q = toInt(quantityFromDb);         

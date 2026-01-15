@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { useCreateOrder } from '../hooks/useOrders';
 import { useTicker } from '../hooks/useBackpackWs';
 import { useBalances } from '../hooks/useBalances';
+import { SYMBOL_DECIMALS } from '@vxness/types';
 
 interface OrderFormProps {
   asset: 'BTC' | 'ETH' | 'SOL';
@@ -115,7 +116,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
           <Input
             label={`Quantity (${asset})`}
             type="number"
-            step="0.001"
+            step={Math.pow(10, -(SYMBOL_DECIMALS[asset] || 4)).toFixed(SYMBOL_DECIMALS[asset] || 4)}
             value={qty}
             onChange={(e) => setQty(e.target.value)}
             placeholder="0.00"

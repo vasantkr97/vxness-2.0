@@ -3,6 +3,7 @@ import React, { useState, memo } from 'react';
 import { useOrders, useCloseOrder } from '../hooks/useOrders';
 import { useTicker } from '../hooks/useBackpackWs';
 import type { Order } from '../types';
+import { SYMBOL_DECIMALS } from '@vxness/types';
 
 interface PositionsTableProps { }
 
@@ -24,14 +25,19 @@ interface PositionRowProps {
 
 
 const PositionRow = memo(({ order, onClose, isClosing }: PositionRowProps) => {
+
   const { ask: currentPrice, bid } = useTicker(order.symbol);
 
+  // Define decimals map to handle normalization correctly
+  // const SYMBOL_DECIMALS ... removed
+
   const stats = React.useMemo(() => {
-    const qty = order.quantity ? Number(order.quantity) / Math.pow(10, order.quantityDecimals ?? 4) : 0;
-    // Price seems to be already normalized based on values seen, but if we needed to normalize it we would use priceDecimals if available.
-    // Assuming price is safe for now as per user feedback (only PnL/Qty looked wrong).
-    return { qty };
-  }, [order.quantity, order.quantityDecimals]);
+    // Determine decimals: Try map first, then order property, then fallback to 8 (safer for crypto) or 4
+    const decimals = order.quantityDecimals ?? SYMBOL_DECIMALS[order.symbol as keyof typeof SYMBOL_DECIMALS] ?? 8;
+    const qty = order.quantity ? Number(order.quantity) / Math.pow(10, decimals) : 0;
+    
+    return { qty, decimals };
+  }, [order.quantity, order.quantityDecimals, order.symbol]);
 
 
   const calculatePnl = () => {
@@ -61,7 +67,7 @@ const PositionRow = memo(({ order, onClose, isClosing }: PositionRowProps) => {
         ${order.price?.toLocaleString() ?? '-'}
       </td>
       <td className="text-right py-3 px-4 text-gray-300 font-mono">
-        {stats.qty?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 }) ?? '-'}
+        {stats.qty?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: stats.decimals }) ?? '-'}
       </td>
       <td className="text-right py-3 px-4 font-medium">
         <PnlValue value={livePnl} />
@@ -185,7 +191,10 @@ export const PositionsTable: React.FC<PositionsTableProps> = () => {
                       ${order.exitPrice?.toLocaleString() || '-'}
                     </td>
                     <td className="text-right py-3 px-4 text-gray-300 font-mono">
-                      {(order.quantity ? Number(order.quantity) / Math.pow(10, order.quantityDecimals ?? 4) : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 }) ?? '-'}
+                      {(() => {
+                        const decimals = order.quantityDecimals ?? SYMBOL_DECIMALS[order.symbol as keyof typeof SYMBOL_DECIMALS] ?? 8;
+                        return (order.quantity ? Number(order.quantity) / Math.pow(10, decimals) : 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: decimals });
+                      })() ?? '-'}
                     </td>
                     <td className="text-right py-3 px-4 font-medium">
                       <span className={`font-mono py-0.5 rounded ${order.pnl && order.pnl >= 0 ? 'text-success' : 'text-danger'}`}>

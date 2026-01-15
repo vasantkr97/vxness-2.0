@@ -17,12 +17,12 @@ export const Login: React.FC = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
+
     const result = await signin(email, password);
     setLoading(false);
-    
+
     if (result.success) {
-      navigate('/');
+      navigate('/trade');
     } else {
       setError(result.error || 'Login failed');
     }
@@ -33,27 +33,27 @@ export const Login: React.FC = () => {
       <div className="w-full max-w-md bg-dark-800 rounded-xl border border-dark-600/50 p-8 shadow-xl">
         <h2 className="text-2xl font-bold text-center mb-2">Welcome Back</h2>
         <p className="text-muted text-center mb-8">Sign in to continue trading</p>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input 
-            label="Email" 
-            type="email" 
-            value={email} 
-            onChange={e => setEmail(e.target.value)} 
-            required 
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
           />
-          <Input 
-            label="Password" 
-            type="password" 
-            value={password} 
-            onChange={e => setPassword(e.target.value)} 
-            required 
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
           />
-          
+
           {error && <div className="text-danger text-sm text-center">{error}</div>}
-          
+
           <Button fullWidth className="mt-2" disabled={loading}>
-             {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
 

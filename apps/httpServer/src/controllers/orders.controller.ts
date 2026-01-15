@@ -53,7 +53,7 @@ function transformOrder(order: any) {
         symbol: order.symbol || "BTC",
         orderType: order.side === "long" ? "long" : "short",
         quantity: order.quantity != null ? Number(order.quantity) : null,
-        quantityDecimals: 7, 
+        quantityDecimals: order.quantityDecimals ?? 7, 
         price: order.openPrice != null ? Number(order.openPrice) / ORDER_PRECISION.PRICE : null,
         status: order.status,
         pnl: order.Pnl != null ? Number(order.Pnl) / ORDER_PRECISION.PRICE : null,
@@ -172,14 +172,20 @@ export const CloseOrder = async (req: Request, res: Response) => {
             where: {
                 id: orderId,
                 userId,
-                status: "open",
             }
         })
 
         if (!existingOrder) {
             return res.status(404).json({
-                error: "Order not found or already closed",
+                error: "Order not found",
             })
+        }
+
+        if (existingOrder.status === "closed") {
+            return res.status(200).json({
+                message: "Order already closed",
+                orderId,
+            });
         }
 
         console.log(`[Order] closing order ${orderId} for user ${userId}`);
@@ -199,7 +205,7 @@ export const CloseOrder = async (req: Request, res: Response) => {
 
         console.log(`[Order] close response for ${orderId}:`, JSON.stringify(engineResponse));
 
-        if (engineResponse.status === "closed") {
+        if (engineResponse.status === "closed" || engineResponse.status === "order_not_found") {
             return res.status(200).json({
                 message: "Order closed successfully",
                 orderId,

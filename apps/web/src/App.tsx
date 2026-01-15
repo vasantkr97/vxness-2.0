@@ -8,6 +8,7 @@ import { Header } from './components/Header';
 import { Trade } from './pages/Trade';
 import { Wallet } from './pages/Wallet';
 import { Login } from './pages/Login';
+import { Landing } from './pages/Landing';
 import { Signup } from './pages/Signup';
 
 const ProtectedRoute = () => {
@@ -41,10 +42,11 @@ const App: React.FC = () => {
                 <Route path="/signup" element={<Signup />} />
 
                 <Route element={<ProtectedRoute />}>
-                  <Route path="/" element={<Trade />} />
+                  <Route path="/trade" element={<Trade />} />
                   <Route path="/wallet" element={<Wallet />} />
                 </Route>
               </Route>
+              <Route path="/" element={<Landing />} />
             </Routes>
           </Router>
         </TradeProvider>

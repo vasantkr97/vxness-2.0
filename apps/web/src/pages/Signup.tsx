@@ -18,12 +18,12 @@ export const Signup: React.FC = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
+
     const result = await signup(username, email, password);
     setLoading(false);
-    
+
     if (result.success) {
-      navigate('/');
+      navigate('/trade');
     } else {
       setError(result.error || 'Registration failed');
     }
@@ -34,34 +34,34 @@ export const Signup: React.FC = () => {
       <div className="w-full max-w-md bg-dark-800 rounded-xl border border-dark-600/50 p-8 shadow-xl">
         <h2 className="text-2xl font-bold text-center mb-2">Create Account</h2>
         <p className="text-muted text-center mb-8">Start your trading journey today</p>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input 
-            label="Username" 
-            type="text" 
-            value={username} 
-            onChange={e => setUsername(e.target.value)} 
-            required 
+          <Input
+            label="Username"
+            type="text"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            required
           />
-          <Input 
-            label="Email" 
-            type="email" 
-            value={email} 
-            onChange={e => setEmail(e.target.value)} 
-            required 
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
           />
-          <Input 
-            label="Password" 
-            type="password" 
-            value={password} 
-            onChange={e => setPassword(e.target.value)} 
-            required 
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
           />
-          
+
           {error && <div className="text-danger text-sm text-center">{error}</div>}
-          
+
           <Button fullWidth className="mt-2" disabled={loading}>
-             {loading ? 'Creating Account...' : 'Sign Up'}
+            {loading ? 'Creating Account...' : 'Sign Up'}
           </Button>
         </form>
 
