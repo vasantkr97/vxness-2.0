@@ -60,8 +60,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return { success: false, error: 'Login failed' };
     } catch (err) {
       const error = err as AxiosError;
-      const data = error.response?.data as { message?: string } | undefined;
-      return { success: false, error: data?.message || 'Login failed' };
+      const data = error.response?.data as { message?: string; msg?: string; error?: string } | undefined;
+      return { success: false, error: data?.msg || data?.error || data?.message || 'Login failed' };
     }
   };
 
@@ -75,8 +75,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return { success: false, error: 'Signup failed' };
     } catch (err) {
       const error = err as AxiosError;
-      const data = error.response?.data as { message?: string } | undefined;
-      return { success: false, error: data?.message || 'Signup failed' };
+      const data = error.response?.data as { message?: string; msg?: string; error?: string } | undefined;
+      return { success: false, error: data?.msg || data?.error || data?.message || 'Signup failed' };
     }
   };
 

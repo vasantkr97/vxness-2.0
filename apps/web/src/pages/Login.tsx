@@ -50,7 +50,12 @@ export const Login: React.FC = () => {
             required
           />
 
-          {error && <div className="text-danger text-sm text-center">{error}</div>}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 shrink-0"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+              <p className="text-red-500 text-sm">{error}</p>
+            </div>
+          )}
 
           <Button fullWidth className="mt-2" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
