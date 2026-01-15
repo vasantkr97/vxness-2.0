@@ -205,6 +205,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
           <Button
             type="submit"
             fullWidth
+            variant="ghost"
             disabled={isLoading || isInsufficientBalance || quantityNum <= 0}
             className={`py-3 px-2 text-sm shadow-lg border-2 transition-all bg-transparent h-auto min-h-[3.5rem] whitespace-normal break-words ${side === 'long'
               ? 'border-success text-success hover:bg-success hover:text-white'

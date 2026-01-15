@@ -29,7 +29,7 @@ export const Landing: React.FC = () => {
               Log in
             </Link>
             <Link to="/signup">
-              <Button variant="ghost" className="bg-white/10 text-white hover:bg-white text-sm px-5 py-2 rounded-full border border-transparent hover:text-black transition-all duration-300">
+              <Button variant="ghost" className="bg-white/10 text-white hover:bg-white/20 text-sm px-5 py-2 rounded-full border border-transparent transition-all duration-300">
                 Sign up
               </Button>
             </Link>

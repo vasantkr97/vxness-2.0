@@ -4,7 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "db:push": "prisma db push",
+    "db:generate": "prisma db generate"
   },
   "devDependencies": {
     "@types/bun": "latest",
