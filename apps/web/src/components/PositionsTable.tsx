@@ -77,7 +77,7 @@ const PositionRow = memo(({ order, onClose, isClosing }: PositionRowProps) => {
           onClick={() => onClose(order.id)}
           disabled={isClosing}
           className={`text-xs px-3 py-1.5 rounded transition-colors ${isClosing
-            ? 'bg-yellow-600/50 text-yellow-200 cursor-wait'
+            ? 'bg-slate-600/50 text-slate-200 cursor-wait'
             : 'bg-red-500 hover:bg-red-600 text-white'
             } disabled:opacity-50`}
         >

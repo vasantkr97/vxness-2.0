@@ -1,70 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/vxness_logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>vxness</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              dark: {
-                900: '#0a0a0b',
-                800: '#111113',
-                700: '#1a1a1d',
-                600: '#242428',
-                500: '#2d2d32',
-              },
-              accent: '#F59E0B',
-              success: '#10B981',
-              danger: '#ef4444',
-              muted: '#9CA3AF',
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/vxness_logo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vxness</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            dark: {
+              900: '#0a0a0b',
+              800: '#111113',
+              700: '#1a1a1d',
+              600: '#242428',
+              500: '#2d2d32',
             },
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-            }
+            accent: '#4169E1',
+            success: '#10B981',
+            danger: '#ef4444',
+            muted: '#9CA3AF',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
           }
         }
       }
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-      body {
-        background-color: #0a0a0b;
-        color: white;
-      }
-      /* Scrollbar styling */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #111113; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #2d2d32; 
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #10B981; 
-      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background-color: #0a0a0b;
+      color: white;
+    }
 
-      /* Hide number input spinners */
-      input[type=number]::-webkit-inner-spin-button, 
-      input[type=number]::-webkit-outer-spin-button { 
-        -webkit-appearance: none; 
-        margin: 0; 
-        display: none !important;
-      }
-      input[type=number] {
-        -moz-appearance: textfield !important;
-        appearance: textfield !important;
-      }
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
 
-    </style>
+    ::-webkit-scrollbar-track {
+      background: #111113;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #2d2d32;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #10B981;
+    }
+
+    /* Hide number input spinners */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+      display: none !important;
+    }
+
+    input[type=number] {
+      -moz-appearance: textfield !important;
+      appearance: textfield !important;
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {
@@ -81,8 +86,10 @@
 }
 </script>
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

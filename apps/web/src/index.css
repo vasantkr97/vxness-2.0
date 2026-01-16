@@ -27,7 +27,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #0c0d0f;
+  background-color: #000000;
   /* Match dark-900 */
   overflow: hidden;
 }
