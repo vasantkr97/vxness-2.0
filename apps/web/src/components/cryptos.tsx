@@ -44,7 +44,7 @@ export const InstrumentsPanel: React.FC<InstrumentsPanelProps> = ({ currentAsset
     <div className={`bg-dark-800 border-r border-dark-600/50 flex flex-col h-full ${className}`}>
       <div className="p-4 border-b border-dark-600/50">
         <div className="flex justify-between items-center mb-3">
-          <h3 className="text-white font-semibold">Cryptos</h3>
+          {/* <h3 className="text-white font-semibold">Cryptos</h3> */}
           {/* <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-success shadow-lg shadow-success/50' : 'bg-danger'}`} title={isConnected ? 'Connected' : 'Disconnected'} /> */}
         </div>
         <div className="relative">
