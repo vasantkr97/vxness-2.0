@@ -1,0 +1,117 @@
+# Production Docker Compose Configuration
+# Uses pre-built images from GitHub Container Registry
+# Deploy with: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  # --------------------------------------------------------------------------------
+  # Persistence Services
+  # --------------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-vxness}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vxness-network
+
+  redis:
+    image: redis:alpine
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vxness-network
+
+  # --------------------------------------------------------------------------------
+  # Application Services (Pre-built from GHCR)
+  # --------------------------------------------------------------------------------
+  http-server:
+    image: ghcr.io/${IMAGE_PREFIX:-vasantkr97/vxness}-http-server:${IMAGE_TAG:-latest}
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-vxness}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - vxness-network
+
+  trading-engine:
+    image: ghcr.io/${IMAGE_PREFIX:-vasantkr97/vxness}-trading-engine:${IMAGE_TAG:-latest}
+    restart: always
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-vxness}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 1
+    networks:
+      - vxness-network
+
+  price-poller:
+    image: ghcr.io/${IMAGE_PREFIX:-vasantkr97/vxness}-price-poller:${IMAGE_TAG:-latest}
+    restart: always
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NODE_ENV: production
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - vxness-network
+
+  web:
+    image: ghcr.io/${IMAGE_PREFIX:-vasantkr97/vxness}-web:${IMAGE_TAG:-latest}
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - http-server
+    networks:
+      - vxness-network
+
+networks:
+  vxness-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
