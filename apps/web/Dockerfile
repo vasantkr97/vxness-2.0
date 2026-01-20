@@ -17,6 +17,10 @@ RUN bun install
 ARG VITE_API_URL=http://localhost:3000
 ENV VITE_API_URL=$VITE_API_URL
 
+# Build workspace dependencies first
+WORKDIR /app
+RUN bun run build --filter=@vxness/types --filter=@vxness/db
+
 # Build the web app
 WORKDIR /app/apps/web
 RUN bun run build
