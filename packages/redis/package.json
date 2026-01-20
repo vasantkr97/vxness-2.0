@@ -16,9 +16,9 @@
   "scripts": {
     "build": "tsc"
   },
-  "main": "./dist/redisClient.js",
-  "types": "./dist/redisClient.d.ts",
+  "main": "./redisClient.ts",
+  "types": "./redisClient.ts",
   "exports": {
-    ".": "./dist/redisClient.js"
+    ".": "./redisClient.ts"
   }
 }
