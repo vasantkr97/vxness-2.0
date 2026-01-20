@@ -18,7 +18,8 @@ ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
 # Build the web app
-RUN bun run build --filter=web
+WORKDIR /app/apps/web
+RUN bun run build
 
 # Production stage
 FROM nginx:alpine
