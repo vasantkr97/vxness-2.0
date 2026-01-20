@@ -44,7 +44,7 @@ services:
     image: ghcr.io/${IMAGE_PREFIX:-vasantkr97/vxness}-http-server:${IMAGE_TAG:-latest}
     restart: always
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-vxness}
       REDIS_HOST: redis
@@ -101,8 +101,7 @@ services:
     image: ghcr.io/${IMAGE_PREFIX:-vasantkr97/vxness}-web:${IMAGE_TAG:-latest}
     restart: always
     ports:
-      - "80:80"
-      - "443:443"
+      - "127.0.0.1:4000:80"
     depends_on:
       - http-server
     networks:

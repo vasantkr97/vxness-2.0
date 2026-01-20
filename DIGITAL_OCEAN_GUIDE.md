@@ -30,7 +30,7 @@ You can connect to your server in two ways. **Option A is easier.**
 5.  **Skip to the "Install Docker" step below.**
 
 ### Option B: Use your Computer's Terminal
-1.  Open PowerShell (or Command Prompt).
+1.  Open PowerShell (or Command Prompt).ṇ
 2.  Connect to your server: `ssh root@YOUR_IP`
 3.  Type `yes` to accept the fingerprint.
 4.  Enter the password from Phase 1.
