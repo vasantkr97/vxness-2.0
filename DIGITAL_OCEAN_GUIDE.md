@@ -20,21 +20,30 @@ This guide will take you from "zero" to a fully deployed production application 
 
 ## Phase 2: Preparing the Server
 
+You can connect to your server in two ways. **Option A is easier.**
+
+### Option A: Use the Digital Ocean Console (Easiest)
+1.  On the Digital Ocean dashboard, click on your new droplet.
+2.  Click the **Access** link in the left menu.
+3.  Click the blue **Launch Droplet Console** button.
+4.  A new browser window will open simulating a terminal. You are automatically logged in as `root`.
+5.  **Skip to the "Install Docker" step below.**
+
+### Option B: Use your Computer's Terminal
 1.  Open PowerShell (or Command Prompt).
-2.  Connect to your server:
-    ```powershell
-    ssh root@YOUR_IP
-    ```
+2.  Connect to your server: `ssh root@YOUR_IP`
 3.  Type `yes` to accept the fingerprint.
-4.  Enter the **password** you created in Phase 1 (it won't show on screen as you type).
-5.  Copy and paste this block to install Docker:
-    ```bash
-    # Update and Install Docker
-    apt update && apt upgrade -y
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sh get-docker.sh
-    mkdir -p /opt/vxness
-    ```
+4.  Enter the password from Phase 1.
+
+### Install Docker (Run this in the console)
+Copy and paste this block to install Docker:
+```bash
+# Update and Install Docker
+apt update && apt upgrade -y
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+mkdir -p /opt/vxness
+```
 
 ## Phase 3: Connecting GitHub Actions
 
@@ -63,7 +72,7 @@ NODE_ENV=production
 
 ## Phase 4: Deploy!
 
-1.  Go to your code editor.
+1.  Go to your **Local Code Editor (VS Code)** on your computer.
 2.  Commit and push your changes:
     ```bash
     git add .
