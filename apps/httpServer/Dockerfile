@@ -32,4 +32,4 @@ WORKDIR /app/apps/httpServer
 # Expose the API port (usually 3000 or defined in ENV)
 EXPOSE 3001
 
-CMD ["bun", "dist/index.js"]
+CMD ["bun", "src/index.ts"]
