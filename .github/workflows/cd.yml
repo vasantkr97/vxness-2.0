@@ -124,7 +124,7 @@ jobs:
           password: ${{ secrets.DIGITALOCEAN_PASSWORD }}
           script: |
             # Navigate to app directory
-            cd /opt/vxness
+            cd ~/vxness-2.0
 
             # Login to GitHub Container Registry
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -146,7 +146,7 @@ jobs:
             docker compose pull
 
             # Run database migrations (using db push for Prisma 7)
-            docker compose run --rm http-server bunx prisma db push --accept-data-loss
+            docker compose run --rm http-server bunx prisma db push --accept-data-loss --schema=/app/packages/db/prisma/schema.prisma
 
             # Restart services with zero-downtime
             docker compose up -d --remove-orphans
