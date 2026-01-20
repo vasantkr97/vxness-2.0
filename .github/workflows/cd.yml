@@ -145,6 +145,10 @@ jobs:
             # Pull new images
             docker compose pull
 
+            # Force cleanup of any containers holding our ports
+            docker ps -q --filter "publish=3000" | xargs -r docker rm -f
+            docker ps -q --filter "publish=80" | xargs -r docker rm -f
+
             # Run database migrations (using db push for Prisma 7)
             docker compose run --rm -w /app/packages/db http-server bunx prisma db push --accept-data-loss
 
