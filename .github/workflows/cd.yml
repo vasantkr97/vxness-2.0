@@ -146,7 +146,7 @@ jobs:
             docker compose pull
 
             # Run database migrations (using db push for Prisma 7)
-            docker compose run --rm http-server bunx prisma db push --accept-data-loss --schema=/app/packages/db/prisma/schema.prisma
+            docker compose run --rm -w /app/packages/db http-server bunx prisma db push --accept-data-loss
 
             # Restart services with zero-downtime
             docker compose up -d --remove-orphans
