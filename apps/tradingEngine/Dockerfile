@@ -13,6 +13,8 @@ COPY apps ./apps
 RUN bun install
 
 # Generate Prisma Client
+# Prisma 7 requires DATABASE_URL to be set (even though generate doesn't connect to DB)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 WORKDIR /app/packages/db
 RUN bunx prisma generate
 
