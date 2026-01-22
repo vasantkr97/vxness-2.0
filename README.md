@@ -81,6 +81,8 @@ The platform features:
 
 ### System Overview
 
+![Architecture](./apps/web/public/image.png)
+
 ```mermaid
 graph TB
     subgraph "Client Layer"
