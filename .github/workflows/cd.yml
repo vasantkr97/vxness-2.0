@@ -123,8 +123,9 @@ jobs:
           username: ${{ secrets.DIGITALOCEAN_USERNAME }}
           password: ${{ secrets.DIGITALOCEAN_PASSWORD }}
           script: |
-            # Navigate to app directory
-            cd ~/vxness-2.0
+            # Create and navigate to app directory
+            mkdir -p /opt/vxness
+            cd /opt/vxness
 
             # Login to GitHub Container Registry
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
