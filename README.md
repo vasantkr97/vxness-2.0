@@ -885,9 +885,43 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ---
 
+## 💬 Author's Story
+
+Honestly, the project I'm most proud of is **Vxness 2.0**—a full-stack cryptocurrency trading platform I built from scratch. It started as a personal challenge: I wanted to understand how trading platforms like Binance or Bybit work under the hood, not just at a high level, but the actual mechanics of order matching, real-time price feeds, and handling positions with leverage.
+
+### What Motivated Me
+
+I was frustrated that most tutorials only scratched the surface—CRUD apps with basic authentication. I wanted to build something with actual complexity: real-time data, sub-second latency requirements, and the kind of architecture that could actually scale if needed.
+
+### What I Built
+
+It's a microservices-based platform with four main components:
+
+1. **Trading Engine** - This was the hardest part. I built an in-memory order book that handles order matching and real-time P&L calculations. I had to use integer arithmetic instead of floats to avoid precision errors (which is how real trading systems work). It also handles automatic stop-loss/take-profit execution and position liquidation on margin calls.
+
+2. **HTTP Server with WebSocket Support** - RESTful APIs for auth, orders, and balance management, plus a WebSocket layer for pushing real-time updates to clients. JWT auth with HTTP-only cookies for security.
+
+3. **Price Poller** - Connects to Binance's WebSocket API for live BTC, ETH, and SOL prices, then pushes them through Redis Streams to the rest of the system.
+
+4. **React Frontend** - Built with React 19, Vite, and TanStack Query. Interactive candlestick charts using lightweight-charts, responsive design, the whole deal.
+
+### The Technical Challenges
+
+- Getting event-driven communication working properly with Redis Streams was tricky—I had to figure out consumer groups and handle edge cases like reconnection.
+- Making the trading engine performant while still writing to PostgreSQL was solved by batching database writes.
+- Synchronizing WebSocket updates with the order state required careful thought about race conditions.
+
+### What I'm Proud Of
+
+Everything works end-to-end. You can sign up, get virtual USDC, place a leveraged long or short position on BTC, see your P&L update in real-time as prices move, and have your stop-loss trigger automatically. It's containerized with Docker Compose, has proper health checks, and I've written deployment guides for production environments.
+
+It took a couple of months of evening work, but now I actually understand how trading platforms work at a systems level—not just the theory.
+
+---
+
 <div align="center">
 
-**Built with ❤️ by the Vxness Team**
+**Built with ❤️ by Vasant Kumar**
 
 ⭐ **Star this repo** if you find it useful!
 
