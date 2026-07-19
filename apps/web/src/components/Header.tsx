@@ -2,11 +2,12 @@
 import React, { useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useTicker } from '../hooks/useBackpackWs';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { useBalances } from '../hooks/useBalances';
 import { useTrade } from '../context/TradeContext';
 import { useToast } from '../context/ToastContext';
+import { BrandLogo } from './BrandLogo';
 
 const FlashPrice: React.FC<{ value: number; className?: string; updatedAt?: number }> = ({
   value,
@@ -31,6 +32,7 @@ const FlashPrice: React.FC<{ value: number; className?: string; updatedAt?: numb
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { currentAsset } = useTrade();
   const { toast } = useToast();
@@ -54,10 +56,10 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="h-16 bg-dark-800 border-b border-dark-600/50 flex items-center justify-between px-6 sticky top-0 z-50">
-      <div className="flex items-center gap-6">
-        <Link to={user ? "/trade" : "/"} className="flex items-center gap-2">
-          <span className="font-bold text-xl tracking-tight text-accent">vxness</span>
+    <header className="h-16 bg-dark-800 border-b border-dark-600/50 flex items-center justify-between px-3 sm:px-6 sticky top-0 z-50">
+      <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+        <Link to={user ? "/trade" : "/"} className="flex items-center gap-2 min-w-0" aria-label="Vxness terminal">
+          <BrandLogo size="sm" className="vx-terminal-brand" />
         </Link>
 
         {user && (
@@ -87,7 +89,7 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         {user ? (
           <>
             <div className="text-right hidden sm:block">
@@ -95,13 +97,22 @@ export const Header: React.FC = () => {
               <span className="text-sm font-semibold text-white">${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
             <Link to="/wallet">
-              <Button variant="outline" className="px-4 py-2 text-sm">Wallet</Button>
+              <Button variant="outline" className="px-3 sm:px-4 py-2 text-sm">Wallet</Button>
             </Link>
-            <Button variant="ghost" onClick={handleLogout} className="text-sm">Log Out</Button>
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="px-3 sm:px-4 py-2 text-sm text-white border-dark-500 bg-dark-700/70 hover:bg-dark-600 hover:border-dark-500"
+            >
+              Log out
+            </Button>
           </>
         ) : (
-          <Link to="/login">
-            {/* <Button variant="primary" className="text-sm px-6"></Button> */}
+          <Link
+            className="vx-public-header-action"
+            to={location.pathname === '/signup' ? '/login' : '/signup'}
+          >
+            {location.pathname === '/signup' ? 'Sign in' : 'Create account'}
           </Link>
         )}
       </div>

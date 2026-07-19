@@ -1,71 +1,106 @@
-
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AuthField } from '../components/auth/AuthField';
+import { AuthFrame } from '../components/auth/AuthFrame';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate, Link } from 'react-router-dom';
-import { Input } from '../components/ui/Input';
-import { Button } from '../components/ui/Button';
 
-export const Login: React.FC = () => {
+interface LoginErrors {
+  email?: string;
+  password?: string;
+}
+
+const isEmail = (value: string) => /^\S+@\S+\.\S+$/.test(value);
+
+export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<LoginErrors>({});
+  const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signin } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  const validate = () => {
+    const nextErrors: LoginErrors = {};
 
-    const result = await signin(email, password);
+    if (!email.trim()) nextErrors.email = 'Enter your email address.';
+    else if (!isEmail(email)) nextErrors.email = 'Enter a valid email address.';
+
+    if (!password) nextErrors.password = 'Enter your password.';
+    else if (password.length < 6) nextErrors.password = 'Password must be at least 6 characters.';
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setServerError('');
+
+    if (!validate()) return;
+
+    setLoading(true);
+    const result = await signin(email.trim(), password);
     setLoading(false);
 
     if (result.success) {
       navigate('/trade');
-    } else {
-      setError(result.error || 'Login failed');
+      return;
     }
+
+    setServerError(result.error || 'We could not sign you in. Check your details and try again.');
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-dark-800 rounded-xl border border-dark-600/50 p-8 shadow-xl">
-        <h2 className="text-2xl font-bold text-center mb-2">Welcome Back</h2>
-        <p className="text-muted text-center mb-8">Sign in to continue trading</p>
+    <AuthFrame
+      mode="login"
+      title="Welcome back"
+      intro="Sign in to access your Vxness account."
+    >
+      <form className="vx-auth-form" onSubmit={handleSubmit} noValidate>
+        <AuthField
+          id="email"
+          label="Email address"
+          type="email"
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setErrors((current) => ({ ...current, email: undefined }));
+          }}
+          autoComplete="email"
+          placeholder="you@example.com"
+          error={errors.email}
+        />
+        <AuthField
+          id="password"
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            setErrors((current) => ({ ...current, password: undefined }));
+          }}
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          error={errors.password}
+        />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            label="Password"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-          />
+        {serverError && (
+          <div className="vx-auth-error" role="alert">
+            <span>{serverError}</span>
+          </div>
+        )}
 
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 shrink-0"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-              <p className="text-red-500 text-sm">{error}</p>
-            </div>
-          )}
-
-          <Button fullWidth className="mt-2" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </Button>
-        </form>
-
-        <p className="text-center text-muted text-sm mt-6">
-          Don't have an account? <Link to="/signup" className="text-accent hover:underline">Sign Up</Link>
-        </p>
-      </div>
-    </div>
+        <button
+          className="vx-button vx-button--primary vx-button--full vx-auth-submit"
+          type="submit"
+          disabled={loading}
+        >
+          {loading && <span className="vx-loader" aria-hidden="true" />}
+          {loading ? 'Signing in...' : 'Sign in to Vxness'}
+          {!loading && <span className="vx-arrow" aria-hidden="true">&rarr;</span>}
+        </button>
+      </form>
+    </AuthFrame>
   );
 };
