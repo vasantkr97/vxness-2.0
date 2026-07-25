@@ -14,9 +14,13 @@ env:
   IMAGE_PREFIX: ${{ github.repository_owner }}/vxness
 
 jobs:
+  quality:
+    uses: ./.github/workflows/ci.yml
+
   build-and-push:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
+    needs: quality
     permissions:
       contents: read
       packages: write
@@ -106,6 +110,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     environment: production
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - name: Checkout code
@@ -116,12 +123,22 @@ jobs:
           mkdir -p deploy
           cp docker-compose.prod.yml deploy/docker-compose.yml
 
+      - name: Upload deployment configuration
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DIGITALOCEAN_HOST }}
+          username: ${{ secrets.DIGITALOCEAN_USERNAME }}
+          key: ${{ secrets.DIGITALOCEAN_SSH_KEY }}
+          source: deploy/docker-compose.yml
+          target: /opt/vxness
+          strip_components: 1
+
       - name: Deploy to DigitalOcean Droplet
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DIGITALOCEAN_HOST }}
           username: ${{ secrets.DIGITALOCEAN_USERNAME }}
-          password: ${{ secrets.DIGITALOCEAN_PASSWORD }}
+          key: ${{ secrets.DIGITALOCEAN_SSH_KEY }}
           script: |
             # Create and navigate to app directory
             mkdir -p /opt/vxness
@@ -130,35 +147,30 @@ jobs:
             # Login to GitHub Container Registry
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull latest docker-compose file
-            curl -o docker-compose.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.prod.yml
-
             # Create/update .env file
             cat > .env << 'EOF'
             ${{ secrets.PRODUCTION_ENV }}
             EOF
 
-            # Set image tag
-            export IMAGE_TAG=${{ github.sha }}
-            export REGISTRY=${{ env.REGISTRY }}
-            export IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}
+            cat >> .env << 'EOF'
+            IMAGE_TAG=${{ github.sha }}
+            REGISTRY=${{ env.REGISTRY }}
+            IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}
+            EOF
 
             # Pull new images
             docker compose pull
 
-            # Force cleanup of any containers holding our ports
-            docker ps -q --filter "publish=3000" | xargs -r docker rm -f
-            docker ps -q --filter "publish=80" | xargs -r docker rm -f
+            # Run checked-in, non-destructive database migrations
+            docker compose run --rm -w /app/packages/db http-server bunx prisma migrate deploy
 
-            # Run database migrations (using db push for Prisma 7)
-            docker compose run --rm -w /app/packages/db http-server bunx prisma db push --accept-data-loss
-
-            # Restart services with zero-downtime
+            # Restart services
             docker compose up -d --remove-orphans
 
             # Clean up old images
             docker image prune -af --filter "until=24h"
 
             # Health check
-            sleep 10
-            curl -f http://localhost:3000/health || exit 1
+            sleep 15
+            docker compose exec -T http-server bun -e "const response = await fetch('http://localhost:3000/health'); process.exit(response.ok ? 0 : 1)"
+            curl -fk https://localhost/nginx-health || exit 1

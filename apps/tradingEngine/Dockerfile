@@ -1,30 +1,37 @@
-FROM oven/bun:1
+FROM oven/bun:1.3.3 AS builder
 
 WORKDIR /app
 
-# Copy root files
-COPY package.json bun.lock turbo.json ./
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy packages and apps
+COPY package.json bun.lock turbo.json ./
 COPY packages ./packages
 COPY apps ./apps
 
-# Install dependencies
-RUN bun install
+RUN bun install --frozen-lockfile
 
-# Generate Prisma Client
-# Prisma 7 requires DATABASE_URL to be set (even though generate doesn't connect to DB)
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-WORKDIR /app/packages/db
-RUN bunx prisma generate
+RUN cd packages/db && bunx prisma generate
+RUN bun run build --filter=tradingengine
 
-# Run the trading-engine
+FROM oven/bun:1.3.3 AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/package.json /app/bun.lock /app/turbo.json ./
+COPY packages ./packages
+COPY apps ./apps
+RUN bun install --frozen-lockfile --production --filter "./apps/tradingEngine"
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/apps/tradingEngine/dist ./apps/tradingEngine/dist
+
 WORKDIR /app/apps/tradingEngine
 
-# No build script by default in package.json, it runs 'bun run src/index.ts'
-# We can create a build script or run directly.
-# Let's run directly for now as per "dev" script, but "start" should ideally be "bun src/index.ts" or compiled.
-# If we want a production build, we should add a build step.
-# For now, let's run typescript directly with bun which is efficient.
-
-CMD ["bun", "src/index.ts"]
+CMD ["bun", "dist/index.js"]

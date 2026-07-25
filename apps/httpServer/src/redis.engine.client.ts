@@ -30,7 +30,7 @@ const startListeningLoop = async (): Promise<void> => {
     if (isListenerActive) return;
     isListenerActive = true;
 
-    let lastReadMessageId = "$"
+    let lastReadMessageId = "0-0"
     console.log(`[Redis:Listener] Listening for engine responses on '${REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE}'...`);
 
     const waitForNewMessage = async () => {
@@ -73,13 +73,12 @@ const startListeningLoop = async (): Promise<void> => {
                     pendingRequests.delete(correlationId);
                     activeTimeouts.delete(correlationId)
 
-                    //Acknowledege and clean uo the message from the stream for memory
-                    subscriberBlockingRedis.xdel(REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE, streamMsgId).catch(err => {
-                        console.error(`[Redis:Listener] Failed to XDEL message ${streamMsgId}`, err)
-                    })
-
                     resolveFunction(responseData)
                 }
+
+                subscriberBlockingRedis.xdel(REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE, streamMsgId).catch(error => {
+                    console.error(`[Redis:Listener] Failed to XDEL message ${streamMsgId}`, error)
+                })
             }
 
             setImmediate(waitForNewMessage)
@@ -94,7 +93,7 @@ const startListeningLoop = async (): Promise<void> => {
 
 export const dispatchToEngine = async (
     requestId: string,
-    payload: Record<string, any>,
+    payload: Record<string, unknown>,
     timeoutMs = 5000
 ): Promise<Record<string, string>> => {
 

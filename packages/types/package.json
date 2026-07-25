@@ -10,7 +10,8 @@
     "typescript": "^5"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "check-types": "tsc --noEmit"
   },
   "main": "./index.ts",
   "types": "./index.ts",

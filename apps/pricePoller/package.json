@@ -5,19 +5,20 @@
   "private": true,
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "check-types": "tsc --noEmit",
     "start": "bun dist/index.js",
     "dev": "bun run src/index.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/ws": "^8.18.1"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@types/ws": "^8.18.1",
-    "ioredis": "^5.8.2",
-    "ws": "^8.18.3",
+    "ioredis": "^5.11.1",
+    "ws": "^8.21.1",
     "@vxness/types": "workspace:*",
     "@vxness/redis": "workspace:*"
   }

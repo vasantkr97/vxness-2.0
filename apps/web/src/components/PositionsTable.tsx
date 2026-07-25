@@ -5,8 +5,6 @@ import { useTicker } from '../hooks/useBackpackWs';
 import type { Order } from '../types';
 import { SYMBOL_DECIMALS } from '@vxness/types';
 
-interface PositionsTableProps { }
-
 const PnlValue: React.FC<{ value: number }> = ({ value }) => {
   const isPositive = value >= 0;
 
@@ -88,7 +86,7 @@ const PositionRow = memo(({ order, onClose, isClosing }: PositionRowProps) => {
   );
 });
 
-export const PositionsTable: React.FC<PositionsTableProps> = () => {
+export const PositionsTable: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'positions' | 'history'>('positions');
   const [closingOrderId, setClosingOrderId] = useState<string | null>(null);
   const [closeError, setCloseError] = useState<string | null>(null);

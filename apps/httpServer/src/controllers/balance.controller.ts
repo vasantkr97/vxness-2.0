@@ -24,7 +24,7 @@ export const getBalance = async (req: Request, res: Response) => {
 
     try {
         const balances = await prisma.wallet.findMany({
-            where: { userId },
+            where: { userId, symbol: "USDC" },
             select: {
                 symbol: true,
                 balanceRaw: true,

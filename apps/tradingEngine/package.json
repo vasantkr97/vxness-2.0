@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "check-types": "tsc --noEmit",
     "start": "bun dist/index.js",
     "dev": "bun run src/index.ts"
   },
@@ -12,13 +13,9 @@
     "@types/bun": "latest"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@types/uuid": "^11.0.0",
-    "@types/ws": "^8.18.1",
-    "uuid": "^13.0.0",
-    "ws": "^8.18.3",
     "@vxness/db": "workspace:*",
     "@vxness/redis": "workspace:*",
     "@vxness/types": "workspace:*"

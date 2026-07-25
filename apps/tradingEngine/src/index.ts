@@ -1,186 +1,196 @@
-import { prisma } from "@vxness/db";
-import createRedisClient from "@vxness/redis";
-import { ENGINE_CONSTANTS, ORDER_PRECISION, REDIS_ENGINE_CONSTANTS, SYMBOL_DECIMALS, type DBTask, type engineOrder, type Side, type Symbol } from "@vxness/types"
-
-
+import { prisma } from "@vxness/db"
+import createRedisClient from "@vxness/redis"
+import {
+    ENGINE_CONSTANTS,
+    ORDER_PRECISION,
+    REDIS_ENGINE_CONSTANTS,
+    SYMBOL_DECIMALS,
+    type Side,
+    type Symbol,
+    type engineOrder,
+} from "@vxness/types"
 
 const redisClient = createRedisClient()
+const orders = new Map<string, engineOrder>()
+const balances = new Map<string, Map<string, number>>()
+const prices = new Map<string, { bid: number; ask: number }>()
+const tradeableAssets = ["BTC", "ETH", "SOL"] as const
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-const orders = new Map<string, engineOrder>();
-const balances = new Map<string, Map<string, number>>();
-const prices = new Map<string, { bid: number; ask: number }>();
+let lastStreamId = "0-0"
 
+type UnknownRecord = Record<string, unknown>
+type TradeableAsset = typeof tradeableAssets[number]
 
-let dbQueue: DBTask[] = []
-let isFlushingDB = false;
-let lastStreamId = "$";
+const isRecord = (value: unknown): value is UnknownRecord =>
+    typeof value === "object" && value !== null && !Array.isArray(value)
 
+const isTradeableAsset = (value: string): value is TradeableAsset =>
+    tradeableAssets.includes(value as TradeableAsset)
 
+const isSide = (value: string): value is Side =>
+    value === "long" || value === "short"
 
-const toInt = (val: number) => Math.round(val * ENGINE_CONSTANTS.PRECISION_SCALE);
-const fromInt = (val: number) => val / ENGINE_CONSTANTS.PRECISION_SCALE;
+const toInt = (value: number) => Math.round(value * ENGINE_CONSTANTS.PRECISION_SCALE)
+const fromInt = (value: number) => value / ENGINE_CONSTANTS.PRECISION_SCALE
 
-const multiplyInt = (a: number, b: number) => {
-    const bigA = BigInt(Math.round(a))
-    const bigB = BigInt(Math.round(b))
-    const scale = BigInt(ENGINE_CONSTANTS.PRECISION_SCALE);
+const multiplyInt = (first: number, second: number) => {
+    const firstValue = BigInt(Math.round(first))
+    const secondValue = BigInt(Math.round(second))
+    const scale = BigInt(ENGINE_CONSTANTS.PRECISION_SCALE)
+    return Number((firstValue * secondValue) / scale)
+}
 
-    return Number((bigA * bigB) / scale);
-};
+const rawToEngine = (rawValue: bigint, decimals: number): number => {
+    const precisionDigits = 8
+    const difference = decimals - precisionDigits
 
+    if (difference >= 0) {
+        return Number(rawValue / (10n ** BigInt(difference)))
+    }
+
+    return Number(rawValue * (10n ** BigInt(-difference)))
+}
+
+const engineToRaw = (engineValue: number, decimals: number): bigint => {
+    const precisionDigits = 8
+    const difference = decimals - precisionDigits
+    const roundedValue = BigInt(Math.round(engineValue))
+
+    if (difference >= 0) {
+        return roundedValue * (10n ** BigInt(difference))
+    }
+
+    const divisor = 10n ** BigInt(-difference)
+    return (roundedValue + (divisor / 2n)) / divisor
+}
 
 const calcPnl = (side: Side, entry: number, current: number, qty: number): number => {
-    const priceDiff = side === "long" ? current - entry : entry - current;
-    return multiplyInt(priceDiff, qty);
-};
-
-
-//Database Batching System
-function queueDbAction(action: DBTask) {
-    if (dbQueue.length >= ENGINE_CONSTANTS.MAX_QUEUE_SIZE) {
-        console.error(`[DB] Queue overflow! Size: ${dbQueue.length}. Dropping oldest tasks.`)
-        dbQueue.shift();
-    }
-    dbQueue.push(action)
+    const priceDifference = side === "long" ? current - entry : entry - current
+    return multiplyInt(priceDifference, qty)
 }
-
-
-//Flush the Queue to the database in a single 
-async function processDbQueue() {
-    if (isFlushingDB || dbQueue.length === 0) return;
-    isFlushingDB = true;
-
-    const batch = dbQueue.splice(0, ENGINE_CONSTANTS.DB_BATCH_SIZE);
-
-    try {
-        for (const task of batch) {
-            try {
-                if (task.type === "balance-update") {
-                    const { userId, symbol, balance } = task.data;
-
-                    const decimals = SYMBOL_DECIMALS[symbol as Symbol] ?? 8;
-
-                    const actualValue = fromInt(balance);
-
-                    const balanceRaw = BigInt(Math.round(actualValue * Math.pow(10, decimals)));
-
-                    await prisma.wallet.upsert({
-                        where: { userId_symbol: { userId, symbol } },
-                        create: { userId, symbol, balanceRaw, balanceDecimals: decimals },
-                        update: { balanceRaw, balanceDecimals: decimals }
-                    });
-                }
-
-                else if (task.type === "order_create") {
-                    await prisma.order.create({
-                        data: task.data
-                    })
-                }
-
-                else if (task.type === "order_close") {
-                    try {
-                        await prisma.order.update({
-                            where: { id: task.data.id },
-                            data: task.data.update
-                        })
-                    } catch (error: any) {
-                        console.error(`[DB] Close Error ${task.data.id}`, error.message);
-                    }
-                }
-            } catch (error) {
-                console.error(`[DB] failed to process ${task.type}:`, error);
-            }
-        }
-    } catch (error) {
-        console.error("[DB] Critical Batch Error:", error);
-    } finally {
-        isFlushingDB = false;
-    }
-}
-
-setInterval(processDbQueue, ENGINE_CONSTANTS.DB_FLUSH_INTERVAL_MS);
-
-
 
 function getBalance(userId: string, symbol: string) {
-    if (!balances.has(userId)) balances.set(userId, new Map());
-    return balances.get(userId)!.get(symbol) || 0;
+    if (!balances.has(userId)) balances.set(userId, new Map())
+    return balances.get(userId)!.get(symbol) || 0
 }
 
 function setBalance(userId: string, symbol: string, amount: number) {
-    if (!balances.has(userId)) balances.set(userId, new Map());
-    balances.get(userId)!.set(symbol, amount);
-
-    queueDbAction({
-        type: "balance-update",
-        data: { userId, symbol, balance: amount }
-    })
+    if (!balances.has(userId)) balances.set(userId, new Map())
+    balances.get(userId)!.set(symbol, amount)
 }
 
-async function sendCallback(orderId: string, status: string, payload: any = {}) {
-    try {
-        await redisClient.xadd(
-            REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE,
-            "*",
-            "id", orderId,
-            "status", status,
-            "payload", JSON.stringify(payload)
-        )
-    } catch (e) {
-        console.error("Redis Callback Error", e);
+async function sendCallback(
+    orderId: string,
+    status: string,
+    payload: Record<string, string | number | boolean | null> = {},
+) {
+    const fields = [
+        "id", orderId,
+        "status", status,
+        "payload", JSON.stringify(payload),
+    ]
+
+    for (const [key, value] of Object.entries(payload)) {
+        fields.push(key, String(value))
+    }
+
+    await redisClient.xadd(
+        REDIS_ENGINE_CONSTANTS.CALLBACK_QUEUE,
+        "*",
+        ...fields,
+    )
+}
+
+function normalizeCloseReason(reason: string) {
+    switch (reason) {
+        case "TAKE_PROFIT":
+            return "take_profit" as const
+        case "STOP_LOSS":
+            return "stop_loss" as const
+        case "LIQUIDATION":
+            return "liquidation" as const
+        default:
+            return "manual" as const
     }
 }
 
-function executeClose(order: engineOrder, price: number, reason: string, pnl: number) {
-    let credit = order.initialMargin + pnl;
-    if (credit < 0) credit = 0;
+async function executeClose(
+    order: engineOrder,
+    price: number,
+    reason: string,
+    pnl: number,
+    notifyRequester: boolean,
+) {
+    const credit = Math.max(0, order.initialMargin + pnl)
+    const currentBalance = getBalance(order.userId, "USDC")
+    const nextBalance = currentBalance + credit
+    const usdcDecimals = SYMBOL_DECIMALS.USDC
+    const closePrice = Math.round(fromInt(price) * ORDER_PRECISION.PRICE)
+    const realizedPnl = Math.round(fromInt(pnl) * ORDER_PRECISION.PRICE)
 
-    const currentBalance = getBalance(order.userId, order.asset);
-    setBalance(order.userId, order.asset, currentBalance + credit);
-
-    orders.delete(order.id);
-
-    const closeReasonMap: Record<string, string> = {
-        'TAKE_PROFIT': 'take_profit',
-        'STOP_LOSS': 'stop_loss',
-        'LIQUIDATION': 'liquidation',
-        'manual': 'manual',
-        'Manual': 'manual',
-    };
-    const dbCloseReason = closeReasonMap[reason] || 'manual';
-
-    queueDbAction({
-        type: "order_close",
-        data: {
-            id: order.id,
+    await prisma.$transaction([
+        prisma.wallet.upsert({
+            where: {
+                userId_symbol: {
+                    userId: order.userId,
+                    symbol: "USDC",
+                },
+            },
+            create: {
+                userId: order.userId,
+                symbol: "USDC",
+                balanceRaw: engineToRaw(nextBalance, usdcDecimals),
+                balanceDecimals: usdcDecimals,
+            },
             update: {
-                status: 'closed',
-                closePrice: Math.round(fromInt(price) * ORDER_PRECISION.PRICE), 
-                Pnl: Math.round(fromInt(pnl) * ORDER_PRECISION.PRICE),           
+                balanceRaw: engineToRaw(nextBalance, usdcDecimals),
+                balanceDecimals: usdcDecimals,
+            },
+        }),
+        prisma.order.update({
+            where: { id: order.id },
+            data: {
+                status: "closed",
+                closePrice,
+                Pnl: realizedPnl,
                 closedAt: new Date(),
-                closeReason: dbCloseReason
-            }
-        }
-    });
+                closeReason: normalizeCloseReason(reason),
+            },
+        }),
+    ])
 
-    console.log(`[Closed] ${order.id} | ${reason} | Pnl: ${fromInt(pnl).toFixed(2)}`);
-    sendCallback(order.id, "closed", { reason, pnl: fromInt(pnl), price: fromInt(price) })
+    setBalance(order.userId, "USDC", nextBalance)
+    orders.delete(order.id)
+
+    console.log(`[Closed] ${order.id} | ${reason} | PnL: ${fromInt(pnl).toFixed(2)}`)
+
+    if (notifyRequester) {
+        await sendCallback(order.id, "closed", {
+            reason,
+            pnl: fromInt(pnl),
+            price: fromInt(price),
+        })
+    }
 }
 
-function checkOrderRisk(order: engineOrder, currentPrice: number) {
-    const pnl = calcPnl(order.side, order.openingPrice, currentPrice, order.qty);
-    const remainingMargin = order.initialMargin + pnl;
-    const maintMargin = multiplyInt(order.initialMargin, toInt(ENGINE_CONSTANTS.MARGIN_THRESHOLD))
+async function checkOrderRisk(order: engineOrder, currentPrice: number) {
+    const pnl = calcPnl(order.side, order.openingPrice, currentPrice, order.qty)
+    const remainingMargin = order.initialMargin + pnl
+    const maintenanceMargin = multiplyInt(
+        order.initialMargin,
+        toInt(ENGINE_CONSTANTS.MARGIN_THRESHOLD),
+    )
 
-    let reason: string | null = null;
+    let reason: string | null = null
 
-    if (remainingMargin <= maintMargin) {
-        reason = "LIQUIDATION";
+    if (remainingMargin <= maintenanceMargin) {
+        reason = "LIQUIDATION"
     } else if (order.takeProfit && (
         (order.side === "long" && currentPrice >= order.takeProfit) ||
         (order.side === "short" && currentPrice <= order.takeProfit)
     )) {
-        reason = "TAKE_PROFIT";
+        reason = "TAKE_PROFIT"
     } else if (order.stopLoss && (
         (order.side === "long" && currentPrice <= order.stopLoss) ||
         (order.side === "short" && currentPrice >= order.stopLoss)
@@ -188,236 +198,410 @@ function checkOrderRisk(order: engineOrder, currentPrice: number) {
         reason = "STOP_LOSS"
     }
 
-    if (reason) executeClose(order, currentPrice, reason, pnl);
+    if (reason) {
+        await executeClose(order, currentPrice, reason, pnl, false)
+    }
 }
 
-async function handlePriceUpdate(payload: any) {
+async function handlePriceUpdate(payload: unknown) {
+    if (!isRecord(payload)) return
 
-    if (!payload || !payload.s || !payload.b || !payload.a) {
-        return;
+    const rawSymbol = typeof payload.s === "string" ? payload.s : ""
+    const bidValue = Number(payload.b)
+    const askValue = Number(payload.a)
+    const symbol = rawSymbol.replace("_USDC", "").toUpperCase()
+
+    if (
+        !isTradeableAsset(symbol) ||
+        !Number.isFinite(bidValue) ||
+        !Number.isFinite(askValue) ||
+        bidValue <= 0 ||
+        askValue <= 0
+    ) {
+        return
     }
 
-    const { s, b, a } = payload;
-    const symbol = s.replace("_USDC", "").toUpperCase();
-    const bid = toInt(Number(b));
-    const ask = toInt(Number(a));
+    const bid = toInt(bidValue)
+    const ask = toInt(askValue)
+
+    if (!Number.isSafeInteger(bid) || !Number.isSafeInteger(ask)) {
+        return
+    }
 
     prices.set(symbol, { bid, ask })
-    for (const order of orders.values()) {
-        if (order.asset !== symbol) continue;
-        const marketPrice = order.side === "long" ? bid : ask;
-        checkOrderRisk(order, marketPrice);
+
+    for (const order of [...orders.values()]) {
+        if (order.asset !== symbol) continue
+        const marketPrice = order.side === "long" ? bid : ask
+        await checkOrderRisk(order, marketPrice)
     }
 }
 
-async function handleCreateOrder(payload: any) {
+async function handleCreateOrder(payload: unknown) {
+    if (!isRecord(payload)) return
 
-    const { id, userId, asset, side, qty, leverage, takeProfit, stopLoss } = payload;
+    const id = typeof payload.id === "string" ? payload.id : ""
+    const userId = typeof payload.userId === "string" ? payload.userId : ""
+    const assetValue = typeof payload.asset === "string" ? payload.asset.toUpperCase() : ""
+    const sideValue = typeof payload.side === "string" ? payload.side : ""
+    const quantity = Number(payload.qty)
+    const leverage = Number(payload.leverage)
+    const takeProfitValue = payload.takeProfit == null ? undefined : Number(payload.takeProfit)
+    const stopLossValue = payload.stopLoss == null ? undefined : Number(payload.stopLoss)
 
+    if (!uuidPattern.test(id) || !uuidPattern.test(userId)) return
 
-    const normalizedAsset = asset.toUpperCase();
-
-    if (orders.has(id)) return;
-
-    const priceData = prices.get(normalizedAsset);
-
-    if (!priceData) {
-        return sendCallback(id, "no_price", { reason: "Price data not available for asset" });
+    if (
+        !isTradeableAsset(assetValue) ||
+        !isSide(sideValue) ||
+        !Number.isFinite(quantity) ||
+        quantity <= 0 ||
+        !Number.isInteger(leverage) ||
+        leverage < 1 ||
+        leverage > 100 ||
+        (takeProfitValue !== undefined && (!Number.isFinite(takeProfitValue) || takeProfitValue <= 0)) ||
+        (stopLossValue !== undefined && (!Number.isFinite(stopLossValue) || stopLossValue <= 0))
+    ) {
+        await sendCallback(id, "invalid_order", { reason: "Invalid order parameters" })
+        return
     }
 
-    const openingPrice = side === "long" ? priceData.ask : priceData.bid;
-    const qtyInt = toInt(Number(qty));
-    const lev = Number(leverage) || 1;
-
-    const totalValue = multiplyInt(openingPrice, qtyInt);
-    const marginRequired = Math.round(totalValue / lev)
-
-    const userBal = getBalance(userId, "USDC");
-    if (userBal < marginRequired) {
-        return sendCallback(id, "insufficient_balance", { reason: "Not enough balance for margin requirement" })
+    if (orders.has(id)) {
+        await sendCallback(id, "created", { replayed: true })
+        return
     }
 
-    setBalance(userId, "USDC", userBal - marginRequired);
-
-    const order: engineOrder = {
-        id, userId, asset: normalizedAsset, side,
-        qty: qtyInt,
-        leverage: lev,
-        openingPrice,
-        initialMargin: marginRequired,
-        takeProfit: takeProfit ? toInt(Number(takeProfit)) : undefined,
-        stopLoss: stopLoss ? toInt(Number(stopLoss)) : undefined,
-        createdAt: Date.now()
-    }
-
-    orders.set(id, order);
-
-    const decimals = SYMBOL_DECIMALS[normalizedAsset as Symbol] ?? 8;
-
-    const orderData = {
-        id,
-        userId,
-        symbol: normalizedAsset,
-        side,
-        quantity: Math.round(Number(qty) * Math.pow(10, decimals)),
-        quantityDecimals: decimals,
-        leverage: lev,
-        openPrice: Math.round(fromInt(openingPrice) * ORDER_PRECISION.PRICE),
-        priceDecimals: 2,
-        margin: Math.round(fromInt(marginRequired) * ORDER_PRECISION.PRICE),
-        status: "open",
-        createdAt: new Date()
-    };
-
-    console.log(`[DB] Queuing order_create:`, JSON.stringify(orderData, null, 2));
-
-    queueDbAction({
-        type: "order_create",
-        data: orderData
+    const persistedOrder = await prisma.order.findUnique({
+        where: { id },
+        select: {
+            userId: true,
+            status: true,
+            openPrice: true,
+        },
     })
 
-    console.log(`{Create} Order ${id} opened @ ${fromInt(openingPrice)}`);
-    sendCallback(id, "created", { price: fromInt(openingPrice) })
-}
-
-
-async function handleCloseOrder(payload: any) {
-    const { orderId, userId } = payload;
-    const order = orders.get(orderId);
-
-    if (!order || order.userId !== userId) {
-        return sendCallback(orderId || "unknown", "order_not_found", { reason: "Order not found or access denied" })
+    if (persistedOrder) {
+        const status = persistedOrder.userId === userId ? "created" : "invalid_order"
+        await sendCallback(id, status, {
+            replayed: true,
+            price: Number(persistedOrder.openPrice) / ORDER_PRECISION.PRICE,
+        })
+        return
     }
 
-    const priceData = prices.get(order.asset);
-    const closePrice = priceData ? (order.side === "long" ? priceData.bid : priceData.ask) : order.openingPrice;
-    const pnl = calcPnl(order.side, order.openingPrice, closePrice, order.qty);
+    const priceData = prices.get(assetValue)
+    if (!priceData) {
+        await sendCallback(id, "no_price", { reason: "Price data not available for asset" })
+        return
+    }
 
-    executeClose(order, closePrice, "manual", pnl);
+    const openingPrice = sideValue === "long" ? priceData.ask : priceData.bid
+    const quantityInt = toInt(quantity)
+    const takeProfit = takeProfitValue === undefined ? undefined : toInt(takeProfitValue)
+    const stopLoss = stopLossValue === undefined ? undefined : toInt(stopLossValue)
+
+    if (
+        !Number.isSafeInteger(quantityInt) ||
+        (takeProfit !== undefined && !Number.isSafeInteger(takeProfit)) ||
+        (stopLoss !== undefined && !Number.isSafeInteger(stopLoss))
+    ) {
+        await sendCallback(id, "invalid_size", { reason: "Order exceeds precision limits" })
+        return
+    }
+
+    const invalidTakeProfit = takeProfit !== undefined && (
+        (sideValue === "long" && takeProfit <= openingPrice) ||
+        (sideValue === "short" && takeProfit >= openingPrice)
+    )
+    const invalidStopLoss = stopLoss !== undefined && (
+        (sideValue === "long" && stopLoss >= openingPrice) ||
+        (sideValue === "short" && stopLoss <= openingPrice)
+    )
+
+    if (invalidTakeProfit || invalidStopLoss) {
+        await sendCallback(id, "invalid_order", {
+            reason: "Take-profit or stop-loss is on the wrong side of the market price",
+        })
+        return
+    }
+
+    const totalValue = multiplyInt(openingPrice, quantityInt)
+    const marginRequired = Math.round(totalValue / leverage)
+
+    if (!Number.isSafeInteger(totalValue) || !Number.isSafeInteger(marginRequired) || marginRequired <= 0) {
+        await sendCallback(id, "invalid_size", { reason: "Order exceeds supported size" })
+        return
+    }
+
+    const userBalance = getBalance(userId, "USDC")
+    if (userBalance < marginRequired) {
+        await sendCallback(id, "insufficient_balance", {
+            reason: "Not enough balance for margin requirement",
+        })
+        return
+    }
+
+    const nextBalance = userBalance - marginRequired
+    const decimals = SYMBOL_DECIMALS[assetValue]
+    const order: engineOrder = {
+        id,
+        userId,
+        asset: assetValue,
+        side: sideValue,
+        qty: quantityInt,
+        leverage,
+        openingPrice,
+        initialMargin: marginRequired,
+        takeProfit,
+        stopLoss,
+        createdAt: Date.now(),
+    }
+
+    await prisma.$transaction([
+        prisma.wallet.upsert({
+            where: {
+                userId_symbol: {
+                    userId,
+                    symbol: "USDC",
+                },
+            },
+            create: {
+                userId,
+                symbol: "USDC",
+                balanceRaw: engineToRaw(nextBalance, SYMBOL_DECIMALS.USDC),
+                balanceDecimals: SYMBOL_DECIMALS.USDC,
+            },
+            update: {
+                balanceRaw: engineToRaw(nextBalance, SYMBOL_DECIMALS.USDC),
+                balanceDecimals: SYMBOL_DECIMALS.USDC,
+            },
+        }),
+        prisma.order.create({
+            data: {
+                id,
+                userId,
+                symbol: assetValue,
+                side: sideValue,
+                quantity: engineToRaw(quantityInt, decimals),
+                quantityDecimals: decimals,
+                leverage,
+                openPrice: Math.round(fromInt(openingPrice) * ORDER_PRECISION.PRICE),
+                priceDecimals: 2,
+                margin: Math.round(fromInt(marginRequired) * ORDER_PRECISION.PRICE),
+                takeProfitPrice: takeProfit === undefined
+                    ? null
+                    : Math.round(fromInt(takeProfit) * ORDER_PRECISION.PRICE),
+                stopLossPrice: stopLoss === undefined
+                    ? null
+                    : Math.round(fromInt(stopLoss) * ORDER_PRECISION.PRICE),
+                status: "open",
+                createdAt: new Date(order.createdAt),
+            },
+        }),
+    ])
+
+    setBalance(userId, "USDC", nextBalance)
+    orders.set(id, order)
+
+    console.log(`[Create] Order ${id} opened @ ${fromInt(openingPrice)}`)
+    await sendCallback(id, "created", { price: fromInt(openingPrice) })
 }
 
+async function handleCloseOrder(payload: unknown) {
+    if (!isRecord(payload)) return
 
-async function handleBalanceUpdate(payload: any) {
-    const { userId, symbol, newBalanceRaw, newBalanceDecimals } = payload;
+    const orderId = typeof payload.orderId === "string" ? payload.orderId : ""
+    const userId = typeof payload.userId === "string" ? payload.userId : ""
 
-    if (!userId || !symbol || newBalanceRaw === undefined) {
-        console.error("[Balance-Update] missing required fields:", payload);
-        return;
+    if (!uuidPattern.test(orderId) || !uuidPattern.test(userId)) return
+
+    const order = orders.get(orderId)
+    if (!order || order.userId !== userId) {
+        const persistedOrder = await prisma.order.findFirst({
+            where: {
+                id: orderId,
+                userId,
+            },
+            select: {
+                status: true,
+                Pnl: true,
+            },
+        })
+
+        if (persistedOrder?.status === "closed") {
+            await sendCallback(orderId, "closed", {
+                replayed: true,
+                pnl: Number(persistedOrder.Pnl ?? 0) / ORDER_PRECISION.PRICE,
+            })
+            return
+        }
+
+        await sendCallback(orderId, "order_not_found", {
+            reason: "Order not found or access denied",
+        })
+        return
+    }
+
+    const priceData = prices.get(order.asset)
+    const closePrice = priceData
+        ? (order.side === "long" ? priceData.bid : priceData.ask)
+        : order.openingPrice
+    const pnl = calcPnl(order.side, order.openingPrice, closePrice, order.qty)
+
+    await executeClose(order, closePrice, "manual", pnl, true)
+}
+
+async function handleBalanceUpdate(payload: unknown) {
+    if (!isRecord(payload)) return
+
+    const userId = typeof payload.userId === "string" ? payload.userId : ""
+    const symbolValue = typeof payload.symbol === "string" ? payload.symbol.toUpperCase() : ""
+    const decimals = Number(payload.newBalanceDecimals ?? SYMBOL_DECIMALS[symbolValue as Symbol])
+
+    if (
+        !uuidPattern.test(userId) ||
+        !(symbolValue in SYMBOL_DECIMALS) ||
+        !Number.isInteger(decimals) ||
+        decimals < 0 ||
+        decimals > 30 ||
+        payload.newBalanceRaw === undefined
+    ) {
+        console.error("[Balance-Update] Invalid payload")
+        return
     }
 
     try {
-        //convert from database format to actual decimal value
-        //newBalanceRaw is a string representing a BigInt value
-        const rawValue = Number(newBalanceRaw)
-        const decimals = newBalanceDecimals ?? SYMBOL_DECIMALS[symbol as Symbol] ?? 8;
-        const actualValue = rawValue / Math.pow(10, decimals);
+        const rawValue = BigInt(String(payload.newBalanceRaw))
+        const engineScaledValue = rawToEngine(rawValue, decimals)
 
-        //convert to engine's internal precision (100_000_000)
-        const engineScaledValue = toInt(actualValue);
-
-        if (!balances.has(userId)) {
-            balances.set(userId, new Map());
-        }
-        balances.get(userId)!.set(symbol, engineScaledValue);
-
-        console.log(`[Balance-Update] ${userId} | ${symbol} | ${actualValue} (engine: ${engineScaledValue})`);
+        setBalance(userId, symbolValue, engineScaledValue)
+        console.log(`[Balance-Update] ${userId} | ${symbolValue} | engine: ${engineScaledValue}`)
     } catch (error) {
-        console.log('[Balance-Update] Error processing balance update:', error)
+        console.error("[Balance-Update] Failed to process update:", error)
     }
 }
 
-
 async function loadState() {
-    console.log("Loading State...")
+    console.log("Loading state...")
 
     const dbOrders = await prisma.order.findMany({
-        where: { status: "open" }
-    });
+        where: { status: "open" },
+    })
 
-
-    dbOrders.forEach((order: any) => {
-        const decimals = SYMBOL_DECIMALS[order.symbol as Symbol] ?? 8;
-        
-        const openPriceFromDb = Number(order.openPrice) / ORDER_PRECISION.PRICE;  
-        const quantityFromDb = Number(order.quantity) / Math.pow(10, decimals);  
-
-        const opPrice = toInt(openPriceFromDb); 
-        const q = toInt(quantityFromDb);         
+    for (const order of dbOrders) {
+        const decimals = SYMBOL_DECIMALS[order.symbol as Symbol] ?? 8
+        const openingPrice = toInt(Number(order.openPrice) / ORDER_PRECISION.PRICE)
+        const quantity = rawToEngine(order.quantity, decimals)
 
         orders.set(order.id, {
             id: order.id,
             userId: order.userId,
-            asset: order.symbol,  
+            asset: order.symbol,
             side: order.side as Side,
-            qty: q,
+            qty: quantity,
             leverage: order.leverage,
-            openingPrice: opPrice,
-            initialMargin: multiplyInt(opPrice, q) / order.leverage,
-            takeProfit: order.takeProfitPrice ? toInt(Number(order.takeProfitPrice) / ORDER_PRECISION.PRICE) : undefined,
-            stopLoss: order.stopLossPrice ? toInt(Number(order.stopLossPrice) / ORDER_PRECISION.PRICE) : undefined,
-            createdAt: order.createdAt.getTime()
-        });
+            openingPrice,
+            initialMargin: toInt(Number(order.margin) / ORDER_PRECISION.PRICE),
+            takeProfit: order.takeProfitPrice == null
+                ? undefined
+                : toInt(Number(order.takeProfitPrice) / ORDER_PRECISION.PRICE),
+            stopLoss: order.stopLossPrice == null
+                ? undefined
+                : toInt(Number(order.stopLossPrice) / ORDER_PRECISION.PRICE),
+            createdAt: order.createdAt.getTime(),
+        })
+    }
 
-        console.log(`[LoadState] Loaded order ${order.id}: ${order.side} ${order.symbol} @ ${openPriceFromDb}`);
-    })
+    const dbBalances = await prisma.wallet.findMany()
+    for (const balance of dbBalances) {
+        const decimals = balance.balanceDecimals ?? SYMBOL_DECIMALS[balance.symbol as Symbol] ?? 8
+        setBalance(balance.userId, balance.symbol, rawToEngine(balance.balanceRaw, decimals))
+    }
 
-    const dbBalances = await prisma.wallet.findMany();
-    dbBalances.forEach((b: any) => {
-        if (!balances.has(b.userId)) balances.set(b.userId, new Map());
+    console.log(`State loaded: ${orders.size} open orders.`)
+}
 
-        const decimals = b.balanceDecimals ?? SYMBOL_DECIMALS[b.symbol as Symbol] ?? 8;
-        const rawVal = b.balanceRaw ? Number(b.balanceRaw) : 0;
-        const actualValue = rawVal / Math.pow(10, decimals);
-        const engineScaledValue = toInt(actualValue);
+async function processMessage(fields: string[]) {
+    let rawData = ""
 
-        balances.get(b.userId)!.set(b.symbol, engineScaledValue);
-    });
-    console.log(`State Loaded: ${orders.size} orders.`);
+    for (let index = 0; index < fields.length; index += 2) {
+        if (fields[index] === "data" || fields[index] === "payload") {
+            rawData = fields[index + 1] ?? ""
+        }
+    }
+
+    if (!rawData) return
+
+    const message: unknown = JSON.parse(rawData)
+    if (!isRecord(message)) return
+
+    const kind = typeof message.kind === "string"
+        ? message.kind
+        : typeof message.type === "string"
+            ? message.type
+            : ""
+    const payload = message.payload ?? message.data
+
+    switch (kind) {
+        case "price-update":
+            await handlePriceUpdate(payload)
+            break
+        case "create-order":
+            await handleCreateOrder(payload)
+            break
+        case "close-order":
+            await handleCloseOrder(payload)
+            break
+        case "balance-update":
+            await handleBalanceUpdate(payload)
+            break
+        default:
+            console.warn(`[Engine] Ignoring unknown message kind: ${kind || "(missing)"}`)
+    }
 }
 
 async function engine() {
-    await loadState();
+    await loadState()
     console.log("Engine started")
 
     while (true) {
         try {
-            const response = await redisClient.xread("BLOCK", 0, "STREAMS", REDIS_ENGINE_CONSTANTS.REQUEST_STREAM_KEY, lastStreamId);
-            if (!response || !response[0]) continue;
+            const response = await redisClient.xread(
+                "BLOCK",
+                0,
+                "STREAMS",
+                REDIS_ENGINE_CONSTANTS.REQUEST_STREAM_KEY,
+                lastStreamId,
+            )
 
-            const [_, messages] = response[0];
+            if (!response?.[0]) continue
+
+            const messages = response[0][1]
+            let retryCurrentMessage = false
 
             for (const [id, fields] of messages) {
-                lastStreamId = id;
-
                 try {
-                    let rawData = ""
-                    for (let i = 0; i < fields.length; i += 2) {
-                        if (fields[i] === "data" || fields[i] === "payload") {
-                            rawData = fields[i + 1] ?? ""
-                        }
-                    }
-                    if (!rawData) continue
-
-                    const msg = JSON.parse(rawData)
-                    const kind = msg.kind || msg.type;
-                    const payload = msg.payload || msg.data;
-
-                    switch (kind) {
-                        case "price-update": await handlePriceUpdate(payload); break;
-                        case "create-order": await handleCreateOrder(payload); break;
-                        case "close-order": await handleCloseOrder(payload); break;
-                        case "balance-update": await handleBalanceUpdate(payload); break;
-                        default: console.log(`[Engine] Unknown kind: ${kind}, msg:`, JSON.stringify(msg).slice(0, 200));
-                    }
+                    await processMessage(fields)
+                    await redisClient.xdel(REDIS_ENGINE_CONSTANTS.REQUEST_STREAM_KEY, id)
+                    lastStreamId = id
                 } catch (error) {
-                    console.error(`[SKIP] Malformed message ${id}:`, error);
+                    console.error(`[Engine] Failed message ${id}; it will be retried:`, error)
+                    retryCurrentMessage = true
+                    break
                 }
             }
+
+            if (retryCurrentMessage) {
+                await new Promise(resolve => setTimeout(resolve, 1000))
+            }
         } catch (error) {
-            console.error("Engine Error:", error);
-            await new Promise(r => setTimeout(r, 1000))
+            console.error("Engine error:", error)
+            await new Promise(resolve => setTimeout(resolve, 1000))
         }
     }
 }
 
-engine();
+engine().catch(error => {
+    console.error("Engine failed to start:", error)
+    process.exit(1)
+})

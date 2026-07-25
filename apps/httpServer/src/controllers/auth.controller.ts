@@ -1,13 +1,15 @@
-import {type Request,type Response } from "express"
-import jwt  from "jsonwebtoken"
+import { type Request, type Response } from "express"
+import jwt from "jsonwebtoken"
 import { prisma } from "@vxness/db"
 import bcrypt from "bcryptjs"
 import { SigninSchema, SignupSchema, type SigninType, type SignupType } from "../schemas/auth.zodType"
-import dotenv from "dotenv"
-
-dotenv.config()
-
-const JWT_SECRET = process.env.JWT_SECRET || "vasnth"
+import {
+    AUTH_COOKIE_NAME,
+    AUTH_SESSION_SECONDS,
+    authCookieClearOptions,
+    authCookieOptions,
+} from "../config/auth"
+import { env } from "../config/env"
 
 export async function signup(req: Request, res: Response): Promise<Response | void>  {
     try {
@@ -28,10 +30,27 @@ export async function signup(req: Request, res: Response): Promise<Response | vo
             return res.status(400).json({msg: "All fields are requied."})
         }
 
-        const existingUser = await prisma.user.findUnique({where: {email}})
+        const existingUser = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email },
+                    { username },
+                ],
+            },
+            select: {
+                email: true,
+                username: true,
+            },
+        })
 
         if (existingUser) {
-            return res.status(400).json({msg: "Email already exists, Please use a different one"})
+            const emailTaken = existingUser.email === email
+            return res.status(409).json({
+                error: emailTaken
+                    ? "An account already exists for this email."
+                    : "This username is already taken.",
+                code: emailTaken ? "EMAIL_TAKEN" : "USERNAME_TAKEN",
+            })
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -44,23 +63,23 @@ export async function signup(req: Request, res: Response): Promise<Response | vo
             }
         })
 
-        const token = jwt.sign({ id: user.id, email: user.email}, JWT_SECRET, { expiresIn: "7d"})
+        const token = jwt.sign(
+            { id: user.id, email: user.email },
+            env.jwtSecret,
+            { expiresIn: AUTH_SESSION_SECONDS },
+        )
         
-        res.cookie("jwt", token, {
-            httpOnly: true,
-            sameSite: "strict",
-            maxAge: 60*60*1000
-        })
+        res.cookie(AUTH_COOKIE_NAME, token, authCookieOptions)
 
         return res.status(201).json({
             success: true,
             user: { id: user.id, email, username },
-            token
         })
-    } catch (error: any) {
-        console.log("Signup failed:", error)
+    } catch (error) {
+        console.error("Signup failed:", error)
         return res.status(500).json({
-            error: error.message
+            error: "Vxness could not create your account right now. Please try again.",
+            code: "SIGNUP_FAILED",
         })
     }
 }
@@ -70,8 +89,9 @@ export async function signin(req: Request, res: Response): Promise<Response | vo
         const validatedBody = SigninSchema.safeParse(req.body)
 
         if (!validatedBody.success) {
-            return res.status(404).json({
-                msg: "Invalid inputs"
+            return res.status(400).json({
+                error: "Enter a valid email and a password with at least 6 characters.",
+                code: "INVALID_INPUT"
             })
         }
 
@@ -80,7 +100,10 @@ export async function signin(req: Request, res: Response): Promise<Response | vo
         const { email, password } = query
 
         if (!email || !password) {
-            return res.status(400).json({ error: "email and password are required"});
+            return res.status(400).json({
+                error: "Email and password are required.",
+                code: "MISSING_CREDENTIALS"
+            });
         }
 
         const user = await prisma.user.findUnique({
@@ -88,46 +111,46 @@ export async function signin(req: Request, res: Response): Promise<Response | vo
         })
 
         if (!user) {
-            return res.status(404).json({ error: "User not found"});
+            return res.status(404).json({
+                error: "No account exists for this email. Create an account first.",
+                code: "ACCOUNT_NOT_FOUND"
+            });
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
 
         if (!isPasswordValid) {
             return res.status(401).json({
-                msg: "Invalid credentials-password not correct"
+                error: "The password you entered is incorrect.",
+                code: "INVALID_PASSWORD"
             })
         }
 
         const token = jwt.sign(
             { id: user.id, email: user.email },
-            JWT_SECRET,
-            { expiresIn: "7d" }
+            env.jwtSecret,
+            { expiresIn: AUTH_SESSION_SECONDS }
         )
 
-        res.cookie("jwt", token, {
-            httpOnly: true,
-            sameSite: "strict",
-            maxAge: 60*60*1000,
-        })
+        res.cookie(AUTH_COOKIE_NAME, token, authCookieOptions)
 
         return res.status(200).json({
             success: true,
             user: { id: user.id, email: user.email, username: user.username},
-            token
         })
 
-    } catch (error: any) {
+    } catch (error) {
         console.log("Signin failed", error)
         return res.status(500).json({
-            error: error.message
+            error: "Vxness could not sign you in right now. Please try again.",
+            code: "SIGNIN_FAILED"
         })
     }
 }
 
-export function signout(req: Request, res: Response) {
+export function signout(_req: Request, res: Response) {
     try {
-        res.clearCookie("token")
+        res.clearCookie(AUTH_COOKIE_NAME, authCookieClearOptions)
         return res.status(200).json({ msg: "signed out successfully"})
     } catch (error) {
         console.log("signout error", error)

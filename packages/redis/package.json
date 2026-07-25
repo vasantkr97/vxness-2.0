@@ -5,16 +5,17 @@
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/node": "^24.10.1"
+    "@types/node": "^24.13.3"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "ioredis": "^5.8.2"
+    "ioredis": "^5.11.1"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "check-types": "tsc --noEmit"
   },
   "main": "./redisClient.ts",
   "types": "./redisClient.ts",

@@ -1,4 +1,5 @@
 import type { Request, Response } from "express"
+import type { Order } from "@prisma/client"
 import { prisma } from "@vxness/db"
 import { ORDER_PRECISION } from "@vxness/types"
 import { randomUUID } from "crypto"
@@ -8,7 +9,7 @@ import { CloseOrderBodySchema, CreateOrderBodySchema } from "../schemas/order.Zo
 const ENGINE_TIMEOUT_MS = 10000;
 
 
-function mapEngineResponse(res: Response, status: any, orderId: string) {
+function mapEngineResponse(res: Response, status: string | undefined, orderId: string) {
     switch (status) {
         case "insufficient_balance":
             return res.status(400).json({
@@ -47,13 +48,13 @@ function mapEngineResponse(res: Response, status: any, orderId: string) {
     }
 }
 
-function transformOrder(order: any) {
+function transformOrder(order: Order) {
     return {
         id: order.id,
         symbol: order.symbol || "BTC",
         orderType: order.side === "long" ? "long" : "short",
         quantity: order.quantity != null ? Number(order.quantity) : null,
-        quantityDecimals: order.quantityDecimals ?? 7, 
+        quantityDecimals: order.quantityDecimals ?? 2,
         price: order.openPrice != null ? Number(order.openPrice) / ORDER_PRECISION.PRICE : null,
         status: order.status,
         pnl: order.Pnl != null ? Number(order.Pnl) / ORDER_PRECISION.PRICE : null,
@@ -67,25 +68,6 @@ function transformOrder(order: any) {
     }
 }
 
-// async function getUserBalanceSnapshot(userId: string): Promise<UserBalance[]> {
-//     const user = await prisma.user.findUnique({
-//         where: { id: userId },
-//         select: {
-//             wallets: {
-//                 select: {
-//                     symbol: true,
-//                     balanceRaw: true,
-//                     balanceDecimals: true
-//                 }
-//             }
-//         }
-//     })
-
-//     return user?.wallets ?? [];
-// }
-
-
-//Create Order
 export const createOrder = async (req: Request, res: Response) => {
     const userId = req.user?.id;
 
@@ -96,7 +78,11 @@ export const createOrder = async (req: Request, res: Response) => {
 
         const validation = CreateOrderBodySchema.safeParse(req.body);
         if (!validation.success) {
-            return res.status(400).json({ error: "Validation Error", details: validation.error.message });
+            return res.status(400).json({
+                error: "Enter a positive quantity, 1–100x leverage, and valid risk prices.",
+                code: "INVALID_ORDER_INPUT",
+                details: validation.error.flatten().fieldErrors,
+            });
         }
 
         const { asset, side, qty, leverage, takeProfit, stopLoss } = validation.data;
@@ -121,7 +107,6 @@ export const createOrder = async (req: Request, res: Response) => {
 
         console.log(`[Order] Creating ${side} ${asset} order ${orderId} for user ${userId}`);
 
-        //Dispatch to Redis Engine
         const engineResponse = await dispatchToEngine(orderId, payload, ENGINE_TIMEOUT_MS);
 
         console.log(`[Order] Engine Response for ${orderId}:`, engineResponse);
@@ -134,12 +119,12 @@ export const createOrder = async (req: Request, res: Response) => {
         }
 
         return mapEngineResponse(res, engineResponse.status, orderId)
-    } catch (err: any) {
-        if (err.message?.includes("timeout")) {
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("timeout")) {
             console.error(`[Order] Timeout creating order.`)
             return res.status(504).json({ error: "Gateway Timeout", message: "Order creation timed out. Please check your open orders." })
         }
-        console.error("[Order] createOrder error:", err);
+        console.error("[Order] createOrder error:", error);
         return res.status(500).json({ error: "Internal server error" });
     }
 }
@@ -215,11 +200,11 @@ export const CloseOrder = async (req: Request, res: Response) => {
 
         return mapEngineResponse(res, engineResponse.status, orderId)
 
-    } catch (err: any) {
-        if (err.message?.includes("timeout")) {
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("timeout")) {
             return res.status(504).json({ error: "Gateway Timeout", message: "Closing order timed out. Check status." })
         }
-        console.error("[Order] closeOrder error:", err)
+        console.error("[Order] closeOrder error:", error)
         return res.status(500).json({ error: "Internal Server Error" })
     }
 }
@@ -231,12 +216,20 @@ export const getOrderById = async (req: Request, res: Response) => {
             return res.status(401).json({ error: "user not found"})
         }
         const { orderId } = req.params;
-        const order = await prisma.order.findUnique({
-            where: { id: orderId },
-        })
 
         if (!orderId) {
-            return res.status(404).json({ msg: "Order doesnot exists."})
+            return res.status(400).json({ error: "Order ID is required." })
+        }
+
+        const order = await prisma.order.findFirst({
+            where: {
+                id: orderId,
+                userId,
+            },
+        })
+
+        if (!order) {
+            return res.status(404).json({ error: "Order not found." })
         }
 
         return res.status(200).json({ msg:"order fetched successfully", order: transformOrder(order) })

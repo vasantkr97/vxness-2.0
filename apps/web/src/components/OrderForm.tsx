@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { AxiosError } from 'axios';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../hooks/useToast';
 import { useCreateOrder } from '../hooks/useOrders';
 import { useTicker } from '../hooks/useBackpackWs';
 import { useBalances } from '../hooks/useBalances';
@@ -36,12 +37,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
     return usdc ? Number(usdc.balanceRaw) / Math.pow(10, usdc.balanceDecimals) : 0;
   }, [balances]);
 
-  useEffect(() => {
-    setQty('');
-    setTakeProfit('');
-    setStopLoss('');
-  }, [asset]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -69,9 +64,12 @@ export const OrderForm: React.FC<OrderFormProps> = ({ asset, onOrderPlaced }) =>
         setStopLoss('');
         if (onOrderPlaced) onOrderPlaced();
       },
-      onError: (err: any) => {
-        const msg = err.response?.data?.message || "Failed to place order";
-        showToast(msg, 'error');
+      onError: (error: unknown) => {
+        const axiosError = error as AxiosError<{ error?: string; message?: string }>;
+        const message = axiosError.response?.data?.message
+          || axiosError.response?.data?.error
+          || 'Failed to place order';
+        showToast(message, 'error');
       }
     });
   };

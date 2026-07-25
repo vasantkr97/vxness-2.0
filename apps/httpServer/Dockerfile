@@ -1,35 +1,39 @@
-FROM oven/bun:1
+FROM oven/bun:1.3.3 AS builder
 
 WORKDIR /app
 
-# Copy root files
-COPY package.json bun.lock turbo.json ./
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy packages and apps
+COPY package.json bun.lock turbo.json ./
 COPY packages ./packages
 COPY apps ./apps
 
-# Install dependencies
-RUN bun install
+RUN bun install --frozen-lockfile
 
-# Generate Prisma Client
-# Prisma 7 requires DATABASE_URL to be set (even though generate doesn't connect to DB)
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-WORKDIR /app/packages/db
-RUN bunx prisma generate
+RUN cd packages/db && bunx prisma generate
+RUN bun run build --filter=backend-server
 
-# Build the http-server (if needed, or just run ts)
-# But since we are using bun, we can run TS directly or build.
-# For simplicity and speed with Bun, we can run src/index.ts directly or build.
-# Let's try to build to ensure types are checked, or just run.
-# The package.json says "start": "bun dist/index.js". Let's build.
+FROM oven/bun:1.3.3 AS runner
 
 WORKDIR /app
-RUN bun run build --filter=backend-server
+ENV NODE_ENV=production
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/package.json /app/bun.lock /app/turbo.json ./
+COPY packages ./packages
+COPY apps ./apps
+RUN bun install --frozen-lockfile --production --filter "./apps/httpServer"
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/apps/httpServer/dist ./apps/httpServer/dist
 
 WORKDIR /app/apps/httpServer
 
-# Expose the API port (usually 3000 or defined in ENV)
-EXPOSE 3001
+EXPOSE 3000
 
-CMD ["bun", "src/index.ts"]
+CMD ["bun", "dist/index.js"]

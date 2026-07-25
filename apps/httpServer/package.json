@@ -5,29 +5,31 @@
   "private": true,
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "check-types": "tsc --noEmit",
     "start": "bun dist/index.js",
     "dev": "bun src/index.ts"
   },
   "devDependencies": {
-    "@prisma/client": "^7.0.1",
+    "@prisma/client": "^7.9.0",
     "@types/bun": "latest",
-    "@types/node": "^24.10.1"
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.13.3"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@types/cookie-parser": "^1.4.10",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.5",
-    "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "zod": "^4.1.13",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "prisma": "^7.9.0",
+    "zod": "^4.4.3",
     "@vxness/redis": "workspace:*",
     "@vxness/db": "workspace:*",
     "@vxness/types": "workspace:*"

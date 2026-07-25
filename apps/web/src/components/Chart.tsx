@@ -1,6 +1,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, CandlestickSeries, type ISeriesApi } from 'lightweight-charts';
+import {
+  createChart,
+  ColorType,
+  CandlestickSeries,
+  type CandlestickData,
+  type ISeriesApi,
+  type UTCTimestamp,
+} from 'lightweight-charts';
 import { useCandles } from '../hooks/useCandles';
 
 interface ChartProps {
@@ -71,25 +78,19 @@ export const Chart: React.FC<ChartProps> = ({ asset }) => {
   useEffect(() => {
     if (!series || !candles) return;
 
-    const formattedData = candles.map((c: any) => {
-
-      let time = c.time;
-      if (typeof time === 'string') {
-
-        time = Math.floor(new Date(time).getTime() / 1000);
-      } else if (typeof time === 'number' && time > 1e12) {
-
-        time = Math.floor(time / 1000);
-      }
+    const formattedData: CandlestickData<UTCTimestamp>[] = candles.map((candle) => {
+      const time = (candle.time > 1e12
+        ? Math.floor(candle.time / 1000)
+        : candle.time) as UTCTimestamp;
 
       return {
-        time: time as any,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
+        time,
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
       };
-    }).sort((a: any, b: any) => (a.time as number) - (b.time as number));
+    }).sort((first, second) => Number(first.time) - Number(second.time));
 
     series.setData(formattedData);
   }, [series, candles]);

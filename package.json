@@ -7,27 +7,37 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "check-types": "turbo run check-types",
+    "audit:production": "bun audit --production --ignore GHSA-3ppc-4f35-3m26 --ignore GHSA-7r86-cg39-jmmj --ignore GHSA-23c5-xmqv-rm74 --ignore GHSA-3v7f-55p6-f55p --ignore GHSA-c2c7-rcm5-vvqj",
+    "verify": "bun run lint && bun run check-types && bun run build && bun run audit:production"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
-    "prettier": "^3.6.2",
-    "turbo": "^2.6.1",
+    "@types/node": "^24.13.3",
+    "brace-expansion": "1.1.16",
+    "minimatch": "3.1.5",
+    "picomatch": "2.3.2",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.6",
     "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "bun@1.2.23",
+  "packageManager": "bun@1.3.3",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
-  "dependencies": {
-    "@prisma/adapter-pg": "^7.0.1",
-    "@prisma/client": "^7.0.1",
-    "dotenv": "^17.2.3",
-    "pg": "^8.16.3",
-    "prisma": "^7.0.1"
+  "overrides": {
+    "body-parser": "2.3.0",
+    "brace-expansion": "1.1.16",
+    "find-my-way": "9.7.0",
+    "flatted": "3.4.3",
+    "form-data": "4.0.6",
+    "lodash": "4.18.1",
+    "path-to-regexp": "8.4.2",
+    "postcss": "8.5.22",
+    "qs": "6.15.3",
+    "rollup": "4.59.0"
   }
 }

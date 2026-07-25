@@ -1,23 +1,36 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { AxiosError } from 'axios';
 import { authService } from '../services/authService';
 import type { User } from '../types';
-import { AxiosError } from 'axios';
+import { AuthContext } from './auth';
 
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  login: (user: User) => void;
-  logout: () => Promise<void>;
-  checkAuth: () => Promise<void>;
-  signin: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
-  signup: (username: string, email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
+interface ApiErrorPayload {
+  error?: string | { message?: string };
+  message?: string;
+  msg?: string;
 }
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
+
+const getAuthErrorMessage = (error: unknown, fallback: string) => {
+  const axiosError = error as AxiosError<ApiErrorPayload | string>;
+
+  if (!axiosError.response) {
+    return 'Unable to reach Vxness. Check your connection and try again.';
+  }
+
+  const data = axiosError.response.data;
+
+  if (typeof data === 'string') return data.trim() || fallback;
+  if (typeof data?.error === 'string' && data.error.trim()) return data.error;
+  if (typeof data?.error === 'object' && data.error?.message) return data.error.message;
+  if (data?.message?.trim()) return data.message;
+  if (data?.msg?.trim()) return data.msg;
+
+  return fallback;
+};
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
@@ -27,7 +40,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const userData = await authService.getMe();
       setUser(userData);
-    } catch (error) {
+    } catch {
       setUser(null);
     } finally {
       setLoading(false);
@@ -35,7 +48,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   useEffect(() => {
-    void checkAuth();
+    const timeoutId = window.setTimeout(() => {
+      void checkAuth();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [checkAuth]);
 
   const login = (userData: User) => setUser(userData);
@@ -53,44 +70,42 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signin = async (email: string, password: string) => {
     try {
       const response = await authService.signin({ email, password });
+
       if (response.success) {
         setUser(response.user);
         return { success: true, user: response.user };
       }
+
       return { success: false, error: 'Login failed' };
-    } catch (err) {
-      const error = err as AxiosError;
-      const data = error.response?.data as { message?: string; msg?: string; error?: string } | undefined;
-      return { success: false, error: data?.msg || data?.error || data?.message || 'Login failed' };
+    } catch (error) {
+      return {
+        success: false,
+        error: getAuthErrorMessage(error, 'Vxness could not sign you in. Please try again.'),
+      };
     }
   };
 
   const signup = async (username: string, email: string, password: string) => {
     try {
       const response = await authService.signup({ username, email, password });
+
       if (response.success) {
         setUser(response.user);
         return { success: true, user: response.user };
       }
+
       return { success: false, error: 'Signup failed' };
-    } catch (err) {
-      const error = err as AxiosError;
-      const data = error.response?.data as { message?: string; msg?: string; error?: string } | undefined;
-      return { success: false, error: data?.msg || data?.error || data?.message || 'Signup failed' };
+    } catch (error) {
+      return {
+        success: false,
+        error: getAuthErrorMessage(error, 'Vxness could not create your account. Please try again.'),
+      };
     }
   };
 
-  const value = { user, loading, login, logout, checkAuth, signin, signup };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, loading, login, logout, checkAuth, signin, signup }}>
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
 };

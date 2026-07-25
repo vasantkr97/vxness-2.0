@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b --force",
+    "check-types": "tsc --noEmit",
     "db:push": "prisma db push",
     "db:generate": "prisma db generate"
   },

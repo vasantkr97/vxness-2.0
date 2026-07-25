@@ -5,7 +5,7 @@ import { OrderForm } from '../components/OrderForm';
 import { PositionsTable } from '../components/PositionsTable';
 import { InstrumentsPanel } from '../components/cryptos';
 import { useAuth } from '../hooks/useAuth';
-import { useTrade } from '../context/TradeContext';
+import { useTrade } from '../hooks/useTrade';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
@@ -190,7 +190,7 @@ export const Trade: React.FC = () => {
       <div className="flex-shrink-0 w-[320px] bg-dark-800 border-l border-dark-600/50 overflow-y-auto no-scrollbar">
           <div className="p-4 h-full">
               {user ? (
-                <OrderForm asset={orderFormAsset} />
+                <OrderForm key={orderFormAsset} asset={orderFormAsset} />
               ) : (
                 <InlineAuthForm />
               )}

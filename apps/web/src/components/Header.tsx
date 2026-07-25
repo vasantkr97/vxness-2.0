@@ -5,8 +5,8 @@ import { useTicker } from '../hooks/useBackpackWs';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { useBalances } from '../hooks/useBalances';
-import { useTrade } from '../context/TradeContext';
-import { useToast } from '../context/ToastContext';
+import { useTrade } from '../hooks/useTrade';
+import { useToast } from '../hooks/useToast';
 import { BrandLogo } from './BrandLogo';
 
 const FlashPrice: React.FC<{ value: number; className?: string; updatedAt?: number }> = ({

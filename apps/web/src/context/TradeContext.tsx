@@ -1,11 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
-
-interface TradeContextType {
-    currentAsset: string;
-    setAsset: (asset: string) => void;
-}
-
-const TradeContext = createContext<TradeContextType | undefined>(undefined);
+import React, { useState } from 'react';
+import { TradeContext } from './trade';
 
 export const TradeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentAsset, setAsset] = useState<string>('BTC');
@@ -15,12 +9,4 @@ export const TradeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             {children}
         </TradeContext.Provider>
     );
-};
-
-export const useTrade = () => {
-    const context = useContext(TradeContext);
-    if (context === undefined) {
-        throw new Error('useTrade must be used within a TradeProvider');
-    }
-    return context;
 };

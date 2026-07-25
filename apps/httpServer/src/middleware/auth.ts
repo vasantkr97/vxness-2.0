@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express"
 import jwt from "jsonwebtoken"
 import { prisma } from "@vxness/db"
-
-const JWT_SECRET = process.env.JWT_SECRET || "vasanth"
+import { AUTH_COOKIE_NAME } from "../config/auth"
+import { env } from "../config/env"
 
 interface AuthTokenPayload {
     id: string;
@@ -19,7 +19,7 @@ declare global {
 
 export async function auth(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-        const token = req.cookies?.jwt;
+        const token = req.cookies?.[AUTH_COOKIE_NAME];
 
         if (!token) {
             res.status(401).json({
@@ -31,7 +31,7 @@ export async function auth(req: Request, res: Response, next: NextFunction): Pro
 
         let payload: AuthTokenPayload;
 
-        payload = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
+        payload = jwt.verify(token, env.jwtSecret) as AuthTokenPayload;
 
         const user = await prisma.user.findUnique({
             where: { id: payload.id },
@@ -43,13 +43,13 @@ export async function auth(req: Request, res: Response, next: NextFunction): Pro
             return
         }
 
-        //req.user = user
         req.user = { id: user.id, email: user.email }
         next();
     } catch (error) {
         console.error("Auth middleware error:", error);
-        res.status(500).json({
-            error: "invalid or expired token"
+        res.status(401).json({
+            error: "Your session is invalid or has expired.",
+            code: "INVALID_SESSION",
         })
         return
     }

@@ -21,7 +21,7 @@ let ws: WebSocket | null = null;
 let tickers: TickersState = {};
 let isConnected = false;
 let error: string | null = null;
-let listeners: Set<() => void> = new Set();
+const listeners: Set<() => void> = new Set();
 
 let isConnecting = false;
 

@@ -1,4 +1,4 @@
-FROM oven/bun:1 AS builder
+FROM oven/bun:1.3.3 AS builder
 
 # Set working directory
 WORKDIR /app
@@ -11,7 +11,7 @@ COPY packages ./packages
 COPY apps ./apps
 
 # Install dependencies
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # Build time variables
 ARG VITE_API_URL=http://localhost:3000
@@ -26,7 +26,7 @@ WORKDIR /app/apps/web
 RUN bun run build
 
 # Production stage
-FROM nginx:alpine
+FROM nginx:1.28-alpine
 
 # Copy built assets from builder stage
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html

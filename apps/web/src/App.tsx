@@ -1,15 +1,21 @@
 
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { AuthProvider, useAuth } from './hooks/useAuth';
+import { AuthProvider } from './context/AuthProvider';
+import { useAuth } from './hooks/useAuth';
 import { TradeProvider } from './context/TradeContext';
 import { ToastProvider } from './context/ToastContext';
 import { Header } from './components/Header';
-import { Trade } from './pages/Trade';
-import { Wallet } from './pages/Wallet';
-import { Login } from './pages/Login';
-import { Landing } from './pages/Landing';
-import { Signup } from './pages/Signup';
+
+const Trade = lazy(() => import('./pages/Trade').then(module => ({ default: module.Trade })));
+const Wallet = lazy(() => import('./pages/Wallet').then(module => ({ default: module.Wallet })));
+const Login = lazy(() => import('./pages/Login').then(module => ({ default: module.Login })));
+const Landing = lazy(() => import('./pages/Landing').then(module => ({ default: module.Landing })));
+const Signup = lazy(() => import('./pages/Signup').then(module => ({ default: module.Signup })));
+
+const PageLoader = () => (
+  <div className="h-screen flex items-center justify-center bg-dark-900 text-muted">Loading Vxness...</div>
+);
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth();
@@ -36,17 +42,19 @@ const App: React.FC = () => {
       <ToastProvider>
         <TradeProvider>
           <Router>
-            <Routes>
-              <Route element={<Layout />}>
-                <Route element={<ProtectedRoute />}>
-                  <Route path="/trade" element={<Trade />} />
-                  <Route path="/wallet" element={<Wallet />} />
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route element={<ProtectedRoute />}>
+                    <Route path="/trade" element={<Trade />} />
+                    <Route path="/wallet" element={<Wallet />} />
+                  </Route>
                 </Route>
-              </Route>
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-            </Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+              </Routes>
+            </Suspense>
           </Router>
         </TradeProvider>
       </ToastProvider>
